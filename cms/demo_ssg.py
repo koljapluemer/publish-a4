@@ -11,9 +11,23 @@ from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
-SITE = ROOT / "_site"
+import yaml
+
+CONFIG = Path(__file__).resolve().parent.parent / "config.yml"
+
+
+def load_config() -> tuple[Path, Path]:
+    """Return (data_dir, site_dir); relative paths are relative to config.yml."""
+    if not CONFIG.is_file():
+        sys.exit(f"missing {CONFIG}; copy config.example.yml to config.yml and edit it")
+    cfg = yaml.safe_load(CONFIG.read_text())
+    return tuple(
+        (CONFIG.parent / Path(cfg[key]).expanduser()).resolve()
+        for key in ("data_dir", "site_dir")
+    )
+
+
+DATA, SITE = load_config()
 
 TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -115,7 +129,7 @@ def build(collage: Path, edit: bool = False) -> None:
             edit_script=EDIT_SCRIPT.format(name=collage.name) if edit else "",
         )
     )
-    print(f"built {out.relative_to(ROOT)}/index.html")
+    print(f"built {out / 'index.html'}")
 
 
 class Handler(SimpleHTTPRequestHandler):
