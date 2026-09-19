@@ -1,6 +1,6 @@
 # a4
 
-Collages of HTML "cards" on a landscape A4 page. Managed with [uv](https://docs.astral.sh/uv/); only dependency is PyYAML.
+Collages of HTML "cards" on a landscape A4 page. Managed with [uv](https://docs.astral.sh/uv/); dependencies are PyYAML and Jinja2.
 
 ## Config
 
@@ -17,6 +17,11 @@ Inside `data_dir`:
   cards/<name>.html
   assets/        optional; reference from cards as ../assets/<file>
 ```
+
+## Template
+
+`cms/collage.html.j2` is the page wrapper (CSS, card markup, drag script for `--serve`).
+Variables: `title`, `edit`, `cards` (each with `name`, `top`, `left`, `html`).
 
 ## Commands
 

@@ -12,6 +12,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 import yaml
+from jinja2 import Environment, FileSystemLoader
 
 CONFIG = Path(__file__).resolve().parent.parent / "config.yml"
 
@@ -29,79 +30,11 @@ def load_config() -> tuple[Path, Path]:
 
 DATA, SITE = load_config()
 
-TEMPLATE = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>{title}</title>
-<style>
-  @page {{ size: A4 landscape; margin: 0; }}
-  * {{ box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }}
-  html, body {{ margin: 0; background: #000; }}
-  body {{ padding: 10mm 0; }}
-  .page {{
-    position: relative;
-    height: 210mm;
-    width: 297mm;
-    margin: 0 auto;
-    background: #fff;
-    overflow: hidden;
-  }}
-  .card {{
-    position: absolute;
-    background: #fff;
-    box-shadow: 1mm 1mm 3mm rgba(0, 0, 0, .25);
-  }}
-  .card img {{ display: block; max-width: 100%; }}
-  @media print {{
-    html, body {{ height: 210mm; width: 297mm; background: #fff; }}
-    body {{ padding: 0; }}
-    .page {{ margin: 0; break-after: avoid; }}
-  }}
-</style>
-</head>
-<body>
-<div class="page">
-{cards}
-</div>
-{edit_script}
-</body>
-</html>
-"""
-
-# Injected in --serve mode only. Drag a card; on drop, POST its new position in mm.
-EDIT_SCRIPT = """<style>
-  .card {{ cursor: move; user-select: none; touch-action: none; }}
-  .card img {{ -webkit-user-drag: none; pointer-events: none; }}
-</style>
-<script>
-const page = document.querySelector('.page');
-document.querySelectorAll('.card').forEach(card => {{
-  card.addEventListener('pointerdown', e => {{
-    e.preventDefault();
-    card.setPointerCapture(e.pointerId);
-    card.style.zIndex = 1000;
-    const pxPerMm = page.getBoundingClientRect().width / 297;
-    const x0 = e.clientX, y0 = e.clientY;
-    const left0 = parseFloat(card.style.left), top0 = parseFloat(card.style.top);
-    const move = e => {{
-      card.style.left = Math.round(left0 + (e.clientX - x0) / pxPerMm) + 'mm';
-      card.style.top = Math.round(top0 + (e.clientY - y0) / pxPerMm) + 'mm';
-    }};
-    const up = () => {{
-      card.removeEventListener('pointermove', move);
-      card.removeEventListener('pointerup', up);
-      card.style.zIndex = '';
-      fetch('/save/{name}', {{
-        method: 'POST',
-        body: JSON.stringify({{card: card.dataset.card, top: parseInt(card.style.top), left: parseInt(card.style.left)}}),
-      }});
-    }};
-    card.addEventListener('pointermove', move);
-    card.addEventListener('pointerup', up);
-  }});
-}});
-</script>"""
+TEMPLATE = Environment(
+    loader=FileSystemLoader(Path(__file__).resolve().parent),
+    trim_blocks=True,
+    lstrip_blocks=True,
+).get_template("collage.html.j2")
 
 
 def build(collage: Path, edit: bool = False) -> None:
@@ -112,9 +45,7 @@ def build(collage: Path, edit: bool = False) -> None:
         html = (collage / "cards" / f"{spec['card']}.html").read_text()
         # cards live in cards/, but are emitted into the page next to assets/
         html = html.replace("./../assets/", "assets/").replace("../assets/", "assets/")
-        cards.append(
-            f'<div class="card" data-card="{spec["card"]}" style="top: {spec["top"]}mm; left: {spec["left"]}mm;">\n{html}\n</div>'
-        )
+        cards.append({"name": spec["card"], "top": spec["top"], "left": spec["left"], "html": html})
 
     out = SITE / collage.name
     if out.exists():
@@ -123,11 +54,7 @@ def build(collage: Path, edit: bool = False) -> None:
     if (collage / "assets").is_dir():
         shutil.copytree(collage / "assets", out / "assets")
     (out / "index.html").write_text(
-        TEMPLATE.format(
-            title=collage.name,
-            cards="\n".join(cards),
-            edit_script=EDIT_SCRIPT.format(name=collage.name) if edit else "",
-        )
+        TEMPLATE.render(title=collage.name, cards=cards, edit=edit)
     )
     print(f"built {out / 'index.html'}")
 
