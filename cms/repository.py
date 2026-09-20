@@ -84,6 +84,18 @@ class Repository:
             Path(temporary).unlink(missing_ok=True)
             raise
 
+    @staticmethod
+    def _atomic_write_bytes(path: Path, content: bytes) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(content)
+            os.replace(temporary, path)
+        except Exception:
+            Path(temporary).unlink(missing_ok=True)
+            raise
+
     def list_collages(self) -> list[str]:
         if not self.settings.data_dir.is_dir():
             return []
@@ -169,6 +181,35 @@ class Repository:
             card_path.unlink(missing_ok=True)
             raise
         return Card(card, top, left, source)
+
+    def create_image_card(
+        self,
+        collage: str,
+        card: str,
+        image: bytes,
+        extension: str,
+        top: float,
+        left: float,
+    ) -> Card:
+        collage_dir = self._collage_dir(collage)
+        card = self._validate_name(card, "card")
+        asset_name = f"{card}.{extension}"
+        asset_path = collage_dir / "assets" / asset_name
+        if asset_path.exists():
+            raise Conflict(f"Asset '{asset_name}' already exists in '{collage}'.")
+
+        self._atomic_write_bytes(asset_path, image)
+        try:
+            return self.create_card(
+                collage,
+                card,
+                f'<img src="../assets/{asset_name}" alt="">\n',
+                top,
+                left,
+            )
+        except Exception:
+            asset_path.unlink(missing_ok=True)
+            raise
 
     def update_card(self, collage: str, card: str, source: str) -> Card:
         current = self.get_card(collage, card)

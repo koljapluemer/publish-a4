@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from cms.app import create_app
 
 
@@ -51,3 +53,21 @@ def test_api_validation_is_json(config_path):
     )
     assert response.status_code == 400
     assert response.json["error"]["code"] == "bad_request"
+
+
+def test_create_image_card_api(config_path, settings):
+    client = create_app(config_path).test_client()
+    response = client.post(
+        "/api/collages/weekly/image-cards",
+        data={
+            "name": "clipboard-image",
+            "top": "15",
+            "left": "20",
+            "image": (BytesIO(b"png bytes"), "clipboard.png", "image/png"),
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json["source"] == '<img src="../assets/clipboard-image.png" alt="">\n'
+    assert (settings.data_dir / "weekly" / "assets" / "clipboard-image.png").read_bytes() == b"png bytes"
+    assert (settings.site_dir / "weekly" / "assets" / "clipboard-image.png").read_bytes() == b"png bytes"

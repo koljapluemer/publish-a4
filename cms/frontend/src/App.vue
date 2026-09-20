@@ -131,6 +131,40 @@ async function create() {
   }
 }
 
+async function createImage() {
+  if (!selectedCollage.value || creating.value || !await mayDiscard()) return
+  creating.value = true
+  error.value = null
+  try {
+    if (!navigator.clipboard?.read) {
+      throw new Error('Reading images from the clipboard is not supported by this browser.')
+    }
+    const items = await navigator.clipboard.read()
+    const item = items.find(value => value.types.some(type => type.startsWith('image/')))
+    const imageType = item?.types.find(type => type.startsWith('image/'))
+    if (!item || !imageType) throw new Error('The clipboard does not contain an image.')
+
+    const offset = 10 + (currentCards().length % 10) * 5
+    const card = await api.createImageCard(selectedCollage.value, {
+      name: newCardName(),
+      image: await item.getType(imageType),
+      top: offset,
+      left: offset,
+    })
+    await refreshCollages()
+    selectedCard.value = card
+    source.value = card.source
+    savedSource.value = card.source
+    revision.value += 1
+    await nextTick()
+    editor.value?.focus()
+  } catch (reason) {
+    report(reason)
+  } finally {
+    creating.value = false
+  }
+}
+
 async function openCreateCollage() {
   if (!await mayDiscard()) return
   createCollageError.value = null
@@ -200,6 +234,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       @select-collage="chooseCollage"
       @create-collage="openCreateCollage"
       @create="create"
+      @create-image="createImage"
       @delete="remove"
     />
     <div v-if="error" class="error-bar">

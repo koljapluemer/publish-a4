@@ -11,6 +11,12 @@ from .repository import Repository, RepositoryError
 
 
 FRONTEND_DIST = Path(__file__).resolve().parent / "frontend" / "dist"
+IMAGE_EXTENSIONS = {
+    "image/gif": "gif",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
 
 
 def _json_body() -> dict[str, Any]:
@@ -31,6 +37,16 @@ def _number(value: dict[str, Any], key: str) -> int | float:
     result = value.get(key)
     if isinstance(result, bool) or not isinstance(result, (int, float)):
         raise BadRequest(f"'{key}' must be a number.")
+    if not math.isfinite(result):
+        raise BadRequest(f"'{key}' must be finite.")
+    return result
+
+
+def _form_number(key: str) -> int | float:
+    try:
+        result = float(request.form[key])
+    except (KeyError, TypeError, ValueError):
+        raise BadRequest(f"'{key}' must be a number.") from None
     if not math.isfinite(result):
         raise BadRequest(f"'{key}' must be finite.")
     return result
@@ -91,6 +107,29 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
             _string(body, "source"),
             _number(body, "top"),
             _number(body, "left"),
+        )
+        builder.build_collage(collage, edit=True)
+        return jsonify(card.as_json()), 201
+
+    @app.post("/api/collages/<collage>/image-cards")
+    def create_image_card(collage: str):
+        image = request.files.get("image")
+        if image is None:
+            raise BadRequest("'image' must be an uploaded image.")
+        extension = IMAGE_EXTENSIONS.get(image.mimetype)
+        if extension is None:
+            raise BadRequest("Image must be PNG, JPEG, GIF, or WebP.")
+        content = image.read()
+        if not content:
+            raise BadRequest("Image is empty.")
+
+        card = repository.create_image_card(
+            collage,
+            request.form.get("name", ""),
+            content,
+            extension,
+            _form_number("top"),
+            _form_number("left"),
         )
         builder.build_collage(collage, edit=True)
         return jsonify(card.as_json()), 201

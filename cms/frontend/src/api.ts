@@ -51,6 +51,21 @@ export function createCard(
   })
 }
 
+export function createImageCard(
+  collage: string,
+  value: { name: string; image: Blob; top: number; left: number },
+): Promise<Card> {
+  const body = new FormData()
+  body.append('name', value.name)
+  body.append('image', value.image)
+  body.append('top', String(value.top))
+  body.append('left', String(value.left))
+  return request<Card>(`/api/collages/${encodeURIComponent(collage)}/image-cards`, {
+    method: 'POST',
+    body,
+  })
+}
+
 export function updateCard(collage: string, card: string, source: string): Promise<Card> {
   return request<Card>(cardUrl(collage, card), {
     method: 'PUT',

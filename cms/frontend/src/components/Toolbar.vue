@@ -14,6 +14,7 @@ const emit = defineEmits<{
   selectCollage: [name: string]
   createCollage: []
   create: []
+  createImage: []
   delete: []
 }>()
 </script>
@@ -32,6 +33,7 @@ const emit = defineEmits<{
     <button @click="emit('createCollage')">New collage</button>
     <span class="separator" />
     <button :disabled="!selectedCollage || creating" @click="emit('create')">New card</button>
+    <button :disabled="!selectedCollage || creating" @click="emit('createImage')">Image card from clipboard</button>
     <button class="danger" :disabled="!selectedCard || saving" @click="emit('delete')">Delete</button>
     <span v-if="selectedCard" class="current-card">
       {{ selectedCard }}.html<span v-if="dirty || saving" class="dirty" :title="saving ? 'Saving' : 'Unsaved changes'"> ●</span>

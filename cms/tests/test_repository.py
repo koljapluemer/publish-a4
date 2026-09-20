@@ -44,3 +44,13 @@ def test_rejects_duplicate_and_unsafe_names(settings):
         repository.create_card("weekly", "first", "duplicate", 0, 0)
     with pytest.raises(InvalidName):
         repository.get_card("weekly", "../config")
+
+
+def test_create_image_card(settings):
+    repository = Repository(settings)
+    created = repository.create_image_card(
+        "weekly", "photo", b"image bytes", "png", 3, 4
+    )
+
+    assert created.source == '<img src="../assets/photo.png" alt="">\n'
+    assert (settings.data_dir / "weekly" / "assets" / "photo.png").read_bytes() == b"image bytes"
