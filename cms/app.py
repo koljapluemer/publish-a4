@@ -187,6 +187,10 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
     def frontend_asset(filename: str):
         return send_from_directory(FRONTEND_DIST / "assets", filename)
 
+    @app.get("/favicon.ico")
+    def favicon():
+        return send_from_directory(FRONTEND_DIST, "favicon.ico")
+
     @app.get("/")
     def editor():
         index = FRONTEND_DIST / "index.html"

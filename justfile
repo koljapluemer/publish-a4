@@ -20,3 +20,8 @@ dev:
 # Generate standalone collages in site_dir.
 generate:
     uv run --project cms python -m cms.builder
+
+# Rebuild the frontend and restart the a4 user service.
+reinstall:
+    npm --prefix cms/frontend run build
+    systemctl --user restart a4.service
