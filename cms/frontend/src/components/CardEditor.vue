@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   save: []
+  blur: []
 }>()
 
 const host = ref<HTMLElement | null>(null)
@@ -37,6 +38,11 @@ onMounted(() => {
             return true
           },
         }]),
+        EditorView.domEventHandlers({
+          blur: () => {
+            emit('blur')
+          },
+        }),
         EditorView.updateListener.of(update => {
           if (update.docChanged) emit('update:modelValue', update.state.doc.toString())
         }),
@@ -53,6 +59,14 @@ watch(() => props.modelValue, value => {
 watch(() => props.disabled, disabled => {
   editor?.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!disabled)) })
 })
+
+function focus() {
+  if (!editor) return
+  editor.dispatch({ selection: { anchor: 0, head: editor.state.doc.length } })
+  editor.focus()
+}
+
+defineExpose({ focus })
 
 onBeforeUnmount(() => editor?.destroy())
 </script>

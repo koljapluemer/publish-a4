@@ -1,0 +1,59 @@
+blockquote {
+    margin: 1.5rem 0;
+    padding-left: 1rem;
+    border-left: 3px solid currentColor;
+    color: #666;
+    line-height: 1.6;
+}
+
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    padding: 0;
+    margin: 0;
+}
+
+.p {
+    padding: 8px;
+}
+
+
+.i {
+    font-style: italic;
+}
+
+* {
+    box-sizing: border-box;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+    margin: 0;
+    background: #000;
+    font-family: "Lato", sans-serif;
+}
+
+body {
+    padding: 10mm 0;
+}
+
+
+.card {
+    position: absolute;
+    background: #fff;
+    box-shadow: 1mm 1mm 2mm rgba(0, 0, 0, .15);
+}
+
+.card img {
+    display: block;
+    max-width: 100%;
+}
+
+
+

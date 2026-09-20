@@ -39,7 +39,8 @@ class Builder:
         assets = source_dir / "assets"
         if assets.is_dir():
             shutil.copytree(assets, output_dir / "assets")
-        shutil.copy2(CMS_DIR / "normalize.css", output_dir / "normalize.css")
+        for stylesheet in ("normalize.css", "style.css"):
+            shutil.copy2(CMS_DIR / stylesheet, output_dir / stylesheet)
         output = output_dir / "index.html"
         output.write_text(TEMPLATE.render(title=collage, cards=cards, edit=edit))
         return output

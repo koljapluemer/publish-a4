@@ -7,13 +7,13 @@ defineProps<{
   selectedCard: string | null
   dirty: boolean
   saving: boolean
+  creating: boolean
 }>()
 
 const emit = defineEmits<{
   selectCollage: [name: string]
   createCollage: []
   create: []
-  save: []
   delete: []
 }>()
 </script>
@@ -31,13 +31,10 @@ const emit = defineEmits<{
     </label>
     <button @click="emit('createCollage')">New collage</button>
     <span class="separator" />
-    <button :disabled="!selectedCollage" @click="emit('create')">New card</button>
-    <button class="primary" :disabled="!selectedCard || !dirty || saving" @click="emit('save')">
-      {{ saving ? 'Saving…' : 'Save' }}
-    </button>
+    <button :disabled="!selectedCollage || creating" @click="emit('create')">New card</button>
     <button class="danger" :disabled="!selectedCard || saving" @click="emit('delete')">Delete</button>
     <span v-if="selectedCard" class="current-card">
-      {{ selectedCard }}.html<span v-if="dirty" class="dirty" title="Unsaved changes"> ●</span>
+      {{ selectedCard }}.html<span v-if="dirty || saving" class="dirty" :title="saving ? 'Saving' : 'Unsaved changes'"> ●</span>
     </span>
   </header>
 </template>
