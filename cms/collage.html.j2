@@ -1,66 +1,21 @@
-<!DOCTYPE html>
-<html>
-
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap"
-    rel="stylesheet">
-
-  <link rel="stylesheet" href="./normalize.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="normalize.css">
   <style>
-    .font-sketch {
-      font-family: "Cabin Sketch", sans-serif;
-      font-weight: 400;
-      font-style: normal;
-    }
-
-    .font-sketch {
-      font-family: "Cabin Sketch", sans-serif;
-      font-weight: 700;
-      font-style: normal;
-    }
-
-    div,
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      padding: 0;
-      margin: 0;
-    }
-
-    .p {
-      padding: 8px;
-    }
-
-    @page {
-      size: A4 landscape;
-      margin: 0;
-    }
-
-    * {
-      box-sizing: border-box;
-      print-color-adjust: exact;
-      -webkit-print-color-adjust: exact;
-    }
-
-    html,
-    body {
-      margin: 0;
-      background: #000;
-      font-family: "Lato", sans-serif;
-    }
-
-    body {
-      padding: 10mm 0;
-    }
-
+    .font-sketch { font-family: "Cabin Sketch", sans-serif; }
+    div, h1, h2, h3, h4, h5, h6 { padding: 0; margin: 0; }
+    .p { padding: 8px; }
+    @page { size: A4 landscape; margin: 0; }
+    * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    html, body { margin: 0; background: #000; font-family: "Lato", sans-serif; }
+    body { padding: 10mm 0; }
     .page {
       position: relative;
       height: 210mm;
@@ -69,92 +24,84 @@
       background: #fff;
       overflow: hidden;
     }
-
     .card {
       position: absolute;
       background: #fff;
       box-shadow: 1mm 1mm 3mm rgba(0, 0, 0, .25);
     }
-
-    .card img {
-      display: block;
-      max-width: 100%;
-    }
-
+    .card img { display: block; max-width: 100%; }
+    {% if edit %}
+    .card { cursor: move; user-select: none; touch-action: none; }
+    .card:hover { outline: 1px solid #2563eb; }
+    .card img { -webkit-user-drag: none; pointer-events: none; }
+    {% endif %}
     @media print {
-
-      html,
-      body {
-        height: 210mm;
-        width: 297mm;
-        background: #fff;
-      }
-
-      body {
-        padding: 0;
-      }
-
-      .page {
-        margin: 0;
-        break-after: avoid;
-      }
-    }
-
-      {
-      % if edit %
-    }
-
-    /* edit mode */
-    .card {
-      cursor: move;
-      user-select: none;
-      touch-action: none;
-    }
-
-    .card img {
-      -webkit-user-drag: none;
-      pointer-events: none;
-    }
-
-      {
-      % endif %
+      html, body { height: 210mm; width: 297mm; background: #fff; }
+      body { padding: 0; }
+      .page { margin: 0; break-after: avoid; }
     }
   </style>
 </head>
-
 <body>
   <div class="page">
     {% for card in cards %}
-    <div class="card" data-card="{{ card.name }}" style="top: {{ card.top }}mm; left: {{ card.left }}mm;">
-      {{ card.html }}
+    <div class="card" data-card="{{ card.name }}" style="top: {{ card.top }}mm; left: {{ card.left }}mm">
+      {{ card.html|safe }}
     </div>
     {% endfor %}
   </div>
   {% if edit %}
   <script>
-    // Drag a card; on drop, POST its new position in mm.
+    const collage = {{ title|tojson }};
     const page = document.querySelector('.page');
+
+    function notify(type, detail = {}) {
+      window.parent.postMessage({ source: 'a4-preview', type, ...detail }, window.location.origin);
+    }
+
     document.querySelectorAll('.card').forEach(card => {
-      card.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        card.setPointerCapture(e.pointerId);
+      card.addEventListener('pointerdown', event => {
+        event.preventDefault();
+        notify('card-selected', { card: card.dataset.card });
+        card.setPointerCapture(event.pointerId);
         card.style.zIndex = 1000;
+
         const pxPerMm = page.getBoundingClientRect().width / 297;
-        const x0 = e.clientX, y0 = e.clientY;
-        const left0 = parseFloat(card.style.left), top0 = parseFloat(card.style.top);
-        const move = e => {
-          card.style.left = Math.round(left0 + (e.clientX - x0) / pxPerMm) + 'mm';
-          card.style.top = Math.round(top0 + (e.clientY - y0) / pxPerMm) + 'mm';
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const startLeft = parseFloat(card.style.left);
+        const startTop = parseFloat(card.style.top);
+
+        const move = moveEvent => {
+          card.style.left = Math.round(startLeft + (moveEvent.clientX - startX) / pxPerMm) + 'mm';
+          card.style.top = Math.round(startTop + (moveEvent.clientY - startY) / pxPerMm) + 'mm';
         };
-        const up = () => {
+
+        const up = async () => {
           card.removeEventListener('pointermove', move);
           card.removeEventListener('pointerup', up);
           card.style.zIndex = '';
-          fetch('/save/{{ title }}', {
-            method: 'POST',
-            body: JSON.stringify({ card: card.dataset.card, top: parseInt(card.style.top), left: parseInt(card.style.left) }),
-          });
+          const position = {
+            top: parseFloat(card.style.top),
+            left: parseFloat(card.style.left),
+          };
+
+          try {
+            const response = await fetch(
+              `/api/collages/${encodeURIComponent(collage)}/cards/${encodeURIComponent(card.dataset.card)}/position`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(position),
+              },
+            );
+            if (!response.ok) throw new Error(`Position save failed (${response.status})`);
+            notify('card-moved', { card: card.dataset.card, ...position });
+          } catch (error) {
+            notify('save-error', { message: error instanceof Error ? error.message : String(error) });
+          }
         };
+
         card.addEventListener('pointermove', move);
         card.addEventListener('pointerup', up);
       });
@@ -162,5 +109,4 @@
   </script>
   {% endif %}
 </body>
-
 </html>

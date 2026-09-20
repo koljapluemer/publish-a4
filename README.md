@@ -1,43 +1,107 @@
 # a4
 
-Collages of HTML "cards" on a landscape A4 page. Managed with [uv](https://docs.astral.sh/uv/); dependencies are PyYAML and Jinja2.
+Local editor and static-site generator for HTML cards arranged on an A4 landscape page.
+The editor is Vue, Vite, TypeScript, and CodeMirror; Flask provides a small filesystem API.
+Generated collages are standalone HTML and do not depend on the editor.
 
-## Config
+## Initial setup
 
-Copy `config.example.yml` to `config.yml` (untracked) and set `data_dir` and `site_dir`.
-Paths can be absolute, `~`-prefixed, or relative to `config.yml`.
+Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/),
+[just](https://just.systems/), and a current Node.js/npm.
+
+```bash
+cp config.example.yml config.yml
+# Edit config.yml.
+uv sync --project cms --dev
+npm --prefix cms/frontend install
+npm --prefix cms/frontend run build
+```
+
+`config.yml` accepts absolute, `~`-prefixed, or repository-relative paths:
+
+```yaml
+data_dir: ~/collages/data
+site_dir: ~/collages/_site
+```
 
 ## Data layout
 
-Inside `data_dir`:
+Each subdirectory containing an `index.jsonl` file is a collage:
 
-```
-<collage>/
-  index.jsonl    one line per card: {"card": "<name>", "top": <mm>, "left": <mm>}
-  cards/<name>.html
-  assets/        optional; reference from cards as ../assets/<file>
-```
-
-## Template
-
-`cms/collage.html.j2` is the page wrapper (CSS, card markup, drag script for `--serve`).
-Variables: `title`, `edit`, `cards` (each with `name`, `top`, `left`, `html`).
-
-## Commands
-
-Build every collage to `<site_dir>/<collage>/index.html`:
-
-```
-uv run --project cms cms/demo_ssg.py
+```text
+<data_dir>/
+  weekly/
+    index.jsonl
+    cards/
+      weather.html
+      notes.html
+    assets/
+      chart.png
 ```
 
-Edit card positions by dragging (writes back to `<data_dir>/<collage>/index.jsonl`):
+Each placement is one JSON object per line:
 
+```json
+{"card":"weather","top":10,"left":14}
 ```
-uv run --project cms cms/demo_ssg.py --serve
+
+Card files may contain arbitrary HTML and embedded `<style>` elements. From a card file,
+reference collage assets as `../assets/chart.png`. Card and collage names are restricted to
+letters, numbers, underscores, and hyphens.
+
+## Run the editor
+
+Build the frontend after frontend changes, then start the local server:
+
+```bash
+npm --prefix cms/frontend run build
+uv run --project cms python -m cms.app
 ```
 
-then open http://localhost:8000 and pick a collage.
+Open <http://localhost:8000>. Starting the server generates editor-mode previews. In the
+editor, click a card to load its source, drag it to update its placement, and use `Ctrl+S`
+or `Cmd+S` to save source changes.
 
-Print: open `<site_dir>/<collage>/index.html` from a build without `--serve`, print with
-margins "None". The page is exactly A4 landscape (297 x 210 mm).
+The server has no authentication and is intended to remain bound to localhost.
+
+## Frontend development
+
+Run both development servers:
+
+```bash
+just dev
+```
+
+Open the Vite URL, normally <http://localhost:5173>. Vite proxies `/api` and `/preview` to
+Flask. `Ctrl-C` stops both processes.
+
+Checks:
+
+```bash
+uv run --project cms python -m pytest cms/tests
+npm --prefix cms/frontend run typecheck
+npm --prefix cms/frontend run build
+```
+
+## Generate standalone output
+
+```bash
+just generate
+```
+
+This rebuilds every collage at `<site_dir>/<collage>/index.html`. Open or serve those files
+and print with margins set to "None". The page is exactly 297 × 210 mm.
+
+Running the editor and generating standalone output intentionally use the same site directory.
+Run the standalone build when the desired final state should contain no editor hooks.
+
+## Code map
+
+- `cms/app.py`: Flask routes and JSON translation.
+- `cms/repository.py`: validated, atomic filesystem operations.
+- `cms/builder.py`: standalone and editor-preview generation.
+- `cms/collage.html.j2`: generated page wrapper.
+- `cms/frontend/`: Vue editor.
+
+The filesystem remains the source of truth. There is no database, asset manager, card rename,
+or collage CRUD layer.
