@@ -28,6 +28,14 @@ export async function listCollages(): Promise<Collage[]> {
   return result.collages
 }
 
+export function createCollage(name: string): Promise<Collage> {
+  return request<Collage>('/api/collages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+}
+
 export function getCard(collage: string, card: string): Promise<Card> {
   return request<Card>(cardUrl(collage, card))
 }

@@ -71,6 +71,13 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
             ]
         )
 
+    @app.post("/api/collages")
+    def create_collage():
+        name = _string(_json_body(), "name")
+        repository.create_collage(name)
+        builder.build_collage(name, edit=True)
+        return jsonify(name=name, cards=[]), 201
+
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):
         return jsonify(repository.get_card(collage, card).as_json())

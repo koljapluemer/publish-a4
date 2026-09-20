@@ -4,6 +4,7 @@ import * as api from './api'
 import type { Card, Collage } from './types'
 import CardEditor from './components/CardEditor.vue'
 import CollagePreview from './components/CollagePreview.vue'
+import NewCollageDialog from './components/NewCollageDialog.vue'
 import NewCardDialog from './components/NewCardDialog.vue'
 import Toolbar from './components/Toolbar.vue'
 
@@ -18,6 +19,9 @@ const error = ref<string | null>(null)
 const createOpen = ref(false)
 const createError = ref<string | null>(null)
 const creating = ref(false)
+const createCollageOpen = ref(false)
+const createCollageError = ref<string | null>(null)
+const creatingCollage = ref(false)
 
 const dirty = computed(() => selectedCard.value !== null && source.value !== savedSource.value)
 
@@ -103,6 +107,30 @@ async function create(value: { name: string; source: string; top: number; left: 
   }
 }
 
+function openCreateCollage() {
+  if (!mayDiscard()) return
+  createCollageError.value = null
+  createCollageOpen.value = true
+}
+
+async function createCollage(name: string) {
+  if (creatingCollage.value) return
+  creatingCollage.value = true
+  createCollageError.value = null
+  try {
+    const collage = await api.createCollage(name)
+    await refreshCollages()
+    selectedCollage.value = collage.name
+    clearCard()
+    createCollageOpen.value = false
+    revision.value += 1
+  } catch (reason) {
+    createCollageError.value = reason instanceof Error ? reason.message : String(reason)
+  } finally {
+    creatingCollage.value = false
+  }
+}
+
 async function remove() {
   if (!selectedCollage.value || !selectedCard.value || saving.value) return
   const name = selectedCard.value.name
@@ -146,6 +174,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       :dirty="dirty"
       :saving="saving"
       @select-collage="chooseCollage"
+      @create-collage="openCreateCollage"
       @create="createOpen = true"
       @save="save"
       @delete="remove"
@@ -174,6 +203,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       :busy="creating"
       @close="createOpen = false"
       @create="create"
+    />
+    <NewCollageDialog
+      :open="createCollageOpen"
+      :error="createCollageError"
+      :busy="creatingCollage"
+      @close="createCollageOpen = false"
+      @create="createCollage"
     />
   </main>
 </template>

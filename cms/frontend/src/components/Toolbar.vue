@@ -11,6 +11,7 @@ defineProps<{
 
 const emit = defineEmits<{
   selectCollage: [name: string]
+  createCollage: []
   create: []
   save: []
   delete: []
@@ -28,6 +29,7 @@ const emit = defineEmits<{
         </option>
       </select>
     </label>
+    <button @click="emit('createCollage')">New collage</button>
     <span class="separator" />
     <button :disabled="!selectedCollage" @click="emit('create')">New card</button>
     <button class="primary" :disabled="!selectedCard || !dirty || saving" @click="emit('save')">

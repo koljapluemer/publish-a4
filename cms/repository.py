@@ -30,6 +30,10 @@ class Conflict(RepositoryError):
     status = 409
 
 
+class CollageConflict(Conflict):
+    code = "collage_exists"
+
+
 @dataclass(frozen=True)
 class Placement:
     name: str
@@ -88,6 +92,22 @@ class Repository:
             for path in self.settings.data_dir.iterdir()
             if path.is_dir() and (path / "index.jsonl").is_file()
         )
+
+    def create_collage(self, collage: str) -> None:
+        collage = self._validate_name(collage, "collage")
+        collage_dir = self.settings.data_dir / collage
+        if collage_dir.exists():
+            raise CollageConflict(f"Collage '{collage}' already exists.")
+
+        collage_dir.mkdir(parents=True)
+        try:
+            (collage_dir / "cards").mkdir()
+            self._atomic_write(collage_dir / "index.jsonl", "")
+        except Exception:
+            (collage_dir / "index.jsonl").unlink(missing_ok=True)
+            (collage_dir / "cards").rmdir()
+            collage_dir.rmdir()
+            raise
 
     def _read_placements(self, collage_dir: Path) -> list[Placement]:
         placements = []

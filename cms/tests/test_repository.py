@@ -1,6 +1,19 @@
 import pytest
 
-from cms.repository import Conflict, InvalidName, NotFound, Repository
+from cms.repository import CollageConflict, Conflict, InvalidName, NotFound, Repository
+
+
+def test_create_collage(settings):
+    repository = Repository(settings)
+
+    repository.create_collage("new-collage")
+
+    assert repository.list_collages() == ["new-collage", "weekly"]
+    assert repository.list_cards("new-collage") == []
+    assert (settings.data_dir / "new-collage" / "cards").is_dir()
+
+    with pytest.raises(CollageConflict):
+        repository.create_collage("new-collage")
 
 
 def test_card_lifecycle(settings):

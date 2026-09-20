@@ -8,6 +8,11 @@ def test_crud_api(config_path):
     assert response.status_code == 200
     assert response.json["collages"][0]["name"] == "weekly"
 
+    response = client.post("/api/collages", json={"name": "new-collage"})
+    assert response.status_code == 201
+    assert response.json == {"name": "new-collage", "cards": []}
+    assert client.get("/preview/new-collage/").status_code == 200
+
     response = client.post(
         "/api/collages/weekly/cards",
         json={"name": "new", "source": "<div>New</div>", "top": 1, "left": 2},
