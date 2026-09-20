@@ -1,5 +1,8 @@
 import argparse
+import html
+import re
 import shutil
+from html.parser import HTMLParser
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -17,6 +20,57 @@ TEMPLATE = Environment(
 ).get_template("collage.html.j2")
 
 
+NON_RENDERED_ELEMENTS = {"base", "link", "meta", "script", "style", "title"}
+
+
+class _CardRootParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.root: tuple[int, int] | None = None
+        self.start_tag: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self.root is None and tag not in NON_RENDERED_ELEMENTS:
+            line, column = self.getpos()
+            self.root = (line, column)
+            self.start_tag = self.get_starttag_text()
+
+    handle_startendtag = handle_starttag
+
+
+def place_card(source: str, name: str, top: float, left: float) -> str:
+    parser = _CardRootParser()
+    parser.feed(source)
+    if parser.root is None:
+        raise ValueError(f"Card '{name}' must contain an HTML element.")
+
+    line, column = parser.root
+    start = sum(len(value) for value in source.splitlines(keepends=True)[: line - 1]) + column
+    if parser.start_tag is None:
+        raise ValueError(f"Card '{name}' has an invalid root element.")
+
+    start_tag = parser.start_tag
+    placement = f"top: {top}mm; left: {left}mm;"
+    style_pattern = re.compile(r"(\sstyle\s*=\s*)(['\"])(.*?)\2", re.DOTALL | re.IGNORECASE)
+    if style_pattern.search(start_tag):
+        start_tag = style_pattern.sub(
+            lambda match: f"{match.group(1)}{match.group(2)}{placement} {match.group(3)}{match.group(2)}",
+            start_tag,
+            count=1,
+        )
+        attributes = f' data-card="{html.escape(name, quote=True)}"'
+    else:
+        attributes = (
+            f' data-card="{html.escape(name, quote=True)}"'
+            f' style="{placement}"'
+        )
+    insertion = start_tag.rfind("/>")
+    if insertion == -1:
+        insertion = start_tag.rfind(">")
+    placed_tag = start_tag[:insertion] + attributes + start_tag[insertion:]
+    return source[:start] + placed_tag + source[start + len(parser.start_tag) :]
+
+
 class Builder:
     def __init__(self, settings: Settings, repository: Repository | None = None):
         self.settings = settings
@@ -30,7 +84,7 @@ class Builder:
             html = card.source.replace("./../assets/", "assets/").replace(
                 "../assets/", "assets/"
             )
-            cards.append({**placement.as_json(), "html": html})
+            cards.append(place_card(html, placement.name, placement.top, placement.left))
 
         output_dir = self.settings.site_dir / collage
         if output_dir.exists():

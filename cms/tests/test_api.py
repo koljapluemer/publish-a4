@@ -12,7 +12,11 @@ def test_crud_api(config_path):
 
     response = client.post("/api/collages", json={"name": "new-collage"})
     assert response.status_code == 201
-    assert response.json == {"name": "new-collage", "cards": []}
+    assert response.json == {
+        "name": "new-collage",
+        "metadata": {"displayTitle": "", "publish": False},
+        "cards": [],
+    }
     assert client.get("/preview/new-collage/").status_code == 200
 
     response = client.post(
@@ -68,6 +72,32 @@ def test_create_image_card_api(config_path, settings):
     )
 
     assert response.status_code == 201
-    assert response.json["source"] == '<img src="../assets/clipboard-image.png" alt="">\n'
+    assert response.json["source"] == (
+        '<article><img src="../assets/clipboard-image.png" alt=""></article>\n'
+    )
     assert (settings.data_dir / "weekly" / "assets" / "clipboard-image.png").read_bytes() == b"png bytes"
     assert (settings.site_dir / "weekly" / "assets" / "clipboard-image.png").read_bytes() == b"png bytes"
+
+
+def test_metadata_api(config_path, settings):
+    client = create_app(config_path).test_client()
+    assert client.get("/api/collages").json["collages"][0]["metadata"] == {
+        "displayTitle": "",
+        "publish": False,
+    }
+
+    response = client.put(
+        "/api/collages/weekly/metadata",
+        json={"displayTitle": "Week 12", "publish": True},
+    )
+    assert response.status_code == 200
+    assert response.json == {"displayTitle": "Week 12", "publish": True}
+    assert client.get("/api/collages").json["collages"][0]["metadata"] == response.json
+
+    response = client.put(
+        "/api/collages/weekly/metadata", json={"displayTitle": "x", "publish": "yes"}
+    )
+    assert response.status_code == 400
+    assert client.put(
+        "/api/collages/missing/metadata", json={"displayTitle": "", "publish": False}
+    ).status_code == 404

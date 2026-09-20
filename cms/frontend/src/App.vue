@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as api from './api'
-import type { Card, Collage } from './types'
+import type { Card, Collage, Metadata } from './types'
 import CardEditor from './components/CardEditor.vue'
 import CollagePreview from './components/CollagePreview.vue'
+import MetadataEditor from './components/MetadataEditor.vue'
 import NewCollageDialog from './components/NewCollageDialog.vue'
 import Toolbar from './components/Toolbar.vue'
 
@@ -105,15 +106,21 @@ function currentCards() {
   return collages.value.find(item => item.name === selectedCollage.value)?.cards ?? []
 }
 
+function pastelColor(): string {
+  const hue = Math.floor(Math.random() * 360)
+  return `hsl(${hue} 100% 87.5%)`
+}
+
 async function create() {
   if (!selectedCollage.value || creating.value || !await mayDiscard()) return
   creating.value = true
   error.value = null
   try {
     const offset = 10 + (currentCards().length % 10) * 5
+    const color = pastelColor()
     const card = await api.createCard(selectedCollage.value, {
       name: newCardName(),
-      source: '<article>New card</article>\n',
+      source: `<article class='p' style='background: ${color}'>  </article>\n`,
       top: offset,
       left: offset,
     })
@@ -204,6 +211,18 @@ async function remove() {
   }
 }
 
+async function saveMetadata(value: Metadata) {
+  const collage = collages.value.find(item => item.name === selectedCollage.value)
+  if (!collage) return
+  try {
+    error.value = null
+    collage.metadata = await api.updateMetadata(collage.name, value)
+  } catch (reason) {
+    report(reason)
+    await refreshCollages()
+  }
+}
+
 function cardMoved(name: string, top: number, left: number) {
   const card = currentCards().find(item => item.name === name)
   if (card) Object.assign(card, { top, left })
@@ -249,13 +268,19 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         @card-moved="cardMoved"
         @error="report"
       />
-      <CardEditor
-        ref="editor"
-        v-model="source"
-        :disabled="!selectedCard"
-        @save="save"
-        @blur="save"
-      />
+      <div class="sidebar">
+        <CardEditor
+          ref="editor"
+          v-model="source"
+          :disabled="!selectedCard"
+          @save="save"
+          @blur="save"
+        />
+        <MetadataEditor
+          :metadata="collages.find(item => item.name === selectedCollage)?.metadata ?? null"
+          @save="saveMetadata"
+        />
+      </div>
     </div>
     <NewCollageDialog
       :open="createCollageOpen"

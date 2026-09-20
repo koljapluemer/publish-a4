@@ -15,17 +15,17 @@
   <style>
     {% if edit %}
 
-    .card {
+    [data-card] {
       cursor: move;
       user-select: none;
       touch-action: none;
     }
 
-    .card:hover {
+    [data-card]:hover {
       outline: 1px solid #2563eb;
     }
 
-    .card img {
+    [data-card] img {
       -webkit-user-drag: none;
       pointer-events: none;
     }
@@ -71,9 +71,7 @@
 <body>
   <div class="page">
     {% for card in cards %}
-    <div class="card" data-card="{{ card.name }}" style="top: {{ card.top }}mm; left: {{ card.left }}mm">
-      {{ card.html|safe }}
-    </div>
+    {{ card|safe }}
     {% endfor %}
   </div>
   {% if edit %}
@@ -85,7 +83,7 @@
       window.parent.postMessage({ source: 'a4-preview', type, ...detail }, window.location.origin);
     }
 
-    document.querySelectorAll('.card').forEach(card => {
+    document.querySelectorAll('[data-card]').forEach(card => {
       card.addEventListener('pointerdown', event => {
         event.preventDefault();
         notify('card-selected', { card: card.dataset.card });

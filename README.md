@@ -45,6 +45,13 @@ Each placement is one JSON object per line:
 {"card":"weather","top":10,"left":14}
 ```
 
+Collage metadata (`displayTitle`, `publish`) is an optional `{"meta":...}` line, edited in the
+sidebar below the card editor. Without it the defaults are `""` and `false`:
+
+```json
+{"meta":{"displayTitle":"Week 12","publish":true}}
+```
+
 Card files may contain arbitrary HTML and embedded `<style>` elements. From a card file,
 reference collage assets as `../assets/chart.png`. Card and collage names are restricted to
 letters, numbers, underscores, and hyphens.

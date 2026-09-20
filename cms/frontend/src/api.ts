@@ -1,4 +1,4 @@
-import type { Card, Collage, Placement } from './types'
+import type { Card, Collage, Metadata, Placement } from './types'
 
 interface ApiErrorBody {
   error?: { message?: string }
@@ -33,6 +33,14 @@ export function createCollage(name: string): Promise<Collage> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
+  })
+}
+
+export function updateMetadata(collage: string, value: Metadata): Promise<Metadata> {
+  return request<Metadata>(`/api/collages/${encodeURIComponent(collage)}/metadata`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
   })
 }
 
@@ -78,4 +86,4 @@ export function deleteCard(collage: string, card: string): Promise<void> {
   return request<void>(cardUrl(collage, card), { method: 'DELETE' })
 }
 
-export type { Card, Collage, Placement }
+export type { Card, Collage, Metadata, Placement }

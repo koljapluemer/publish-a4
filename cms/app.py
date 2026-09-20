@@ -7,7 +7,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 
 from .builder import Builder
 from .config import DEFAULT_CONFIG, load_settings
-from .repository import Repository, RepositoryError
+from .repository import Metadata, Repository, RepositoryError
 
 
 FRONTEND_DIST = Path(__file__).resolve().parent / "frontend" / "dist"
@@ -30,6 +30,13 @@ def _string(value: dict[str, Any], key: str) -> str:
     result = value.get(key)
     if not isinstance(result, str):
         raise BadRequest(f"'{key}' must be a string.")
+    return result
+
+
+def _boolean(value: dict[str, Any], key: str) -> bool:
+    result = value.get(key)
+    if not isinstance(result, bool):
+        raise BadRequest(f"'{key}' must be a boolean.")
     return result
 
 
@@ -81,6 +88,7 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
             collages=[
                 {
                     "name": collage,
+                    "metadata": repository.get_metadata(collage).as_json(),
                     "cards": [card.as_json() for card in repository.list_cards(collage)],
                 }
                 for collage in repository.list_collages()
@@ -92,7 +100,16 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
         name = _string(_json_body(), "name")
         repository.create_collage(name)
         builder.build_collage(name, edit=True)
-        return jsonify(name=name, cards=[]), 201
+        return jsonify(name=name, metadata=Metadata().as_json(), cards=[]), 201
+
+    @app.put("/api/collages/<collage>/metadata")
+    def update_metadata(collage: str):
+        body = _json_body()
+        metadata = repository.update_metadata(
+            collage,
+            Metadata(_string(body, "displayTitle"), _boolean(body, "publish")),
+        )
+        return jsonify(metadata.as_json())
 
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):

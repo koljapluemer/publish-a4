@@ -49,6 +49,15 @@ class Card(Placement):
     source: str
 
 
+@dataclass(frozen=True)
+class Metadata:
+    display_title: str = ""
+    publish: bool = False
+
+    def as_json(self) -> dict:
+        return {"displayTitle": self.display_title, "publish": self.publish}
+
+
 class Repository:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -121,7 +130,8 @@ class Repository:
             collage_dir.rmdir()
             raise
 
-    def _read_placements(self, collage_dir: Path) -> list[Placement]:
+    def _read_index(self, collage_dir: Path) -> tuple[Metadata, list[Placement]]:
+        metadata = Metadata()
         placements = []
         for number, line in enumerate(
             (collage_dir / "index.jsonl").read_text().splitlines(), start=1
@@ -130,25 +140,44 @@ class Repository:
                 continue
             try:
                 value = json.loads(line)
-                placements.append(
-                    Placement(value["card"], value["top"], value["left"])
-                )
+                if "meta" in value:
+                    metadata = Metadata(
+                        value["meta"]["displayTitle"], value["meta"]["publish"]
+                    )
+                else:
+                    placements.append(
+                        Placement(value["card"], value["top"], value["left"])
+                    )
             except (json.JSONDecodeError, KeyError, TypeError) as error:
                 raise ValueError(
-                    f"Invalid placement in {collage_dir.name}/index.jsonl line {number}"
+                    f"Invalid line in {collage_dir.name}/index.jsonl line {number}"
                 ) from error
-        return placements
+        return metadata, placements
+
+    def _read_placements(self, collage_dir: Path) -> list[Placement]:
+        return self._read_index(collage_dir)[1]
+
+    def _write_index(
+        self, collage_dir: Path, metadata: Metadata, placements: list[Placement]
+    ) -> None:
+        lines = [{"meta": metadata.as_json()}] if metadata != Metadata() else []
+        lines += [
+            {"card": item.name, "top": item.top, "left": item.left}
+            for item in placements
+        ]
+        content = "".join(json.dumps(line, separators=(",", ":")) + "\n" for line in lines)
+        self._atomic_write(collage_dir / "index.jsonl", content)
 
     def _write_placements(self, collage_dir: Path, placements: list[Placement]) -> None:
-        content = "".join(
-            json.dumps(
-                {"card": item.name, "top": item.top, "left": item.left},
-                separators=(",", ":"),
-            )
-            + "\n"
-            for item in placements
-        )
-        self._atomic_write(collage_dir / "index.jsonl", content)
+        self._write_index(collage_dir, self._read_index(collage_dir)[0], placements)
+
+    def get_metadata(self, collage: str) -> Metadata:
+        return self._read_index(self._collage_dir(collage))[0]
+
+    def update_metadata(self, collage: str, metadata: Metadata) -> Metadata:
+        collage_dir = self._collage_dir(collage)
+        self._write_index(collage_dir, metadata, self._read_placements(collage_dir))
+        return metadata
 
     def list_cards(self, collage: str) -> list[Placement]:
         return self._read_placements(self._collage_dir(collage))
@@ -203,7 +232,7 @@ class Repository:
             return self.create_card(
                 collage,
                 card,
-                f'<img src="../assets/{asset_name}" alt="">\n',
+                f'<article><img src="../assets/{asset_name}" alt=""></article>\n',
                 top,
                 left,
             )

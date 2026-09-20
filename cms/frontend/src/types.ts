@@ -8,8 +8,14 @@ export interface Card extends Placement {
   source: string
 }
 
+export interface Metadata {
+  displayTitle: string
+  publish: boolean
+}
+
 export interface Collage {
   name: string
+  metadata: Metadata
   cards: Placement[]
 }
 

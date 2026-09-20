@@ -1,6 +1,13 @@
 import pytest
 
-from cms.repository import CollageConflict, Conflict, InvalidName, NotFound, Repository
+from cms.repository import (
+    CollageConflict,
+    Conflict,
+    InvalidName,
+    Metadata,
+    NotFound,
+    Repository,
+)
 
 
 def test_create_collage(settings):
@@ -52,5 +59,24 @@ def test_create_image_card(settings):
         "weekly", "photo", b"image bytes", "png", 3, 4
     )
 
-    assert created.source == '<img src="../assets/photo.png" alt="">\n'
+    assert created.source == '<article><img src="../assets/photo.png" alt=""></article>\n'
     assert (settings.data_dir / "weekly" / "assets" / "photo.png").read_bytes() == b"image bytes"
+
+
+def test_metadata_persists_alongside_placements(settings):
+    repository = Repository(settings)
+    index = settings.data_dir / "weekly" / "index.jsonl"
+    assert repository.get_metadata("weekly") == Metadata()
+
+    repository.update_metadata("weekly", Metadata("Week 12", True))
+    assert index.read_text().splitlines()[0] == '{"meta":{"displayTitle":"Week 12","publish":true}}'
+    assert repository.get_metadata("weekly") == Metadata("Week 12", True)
+
+    repository.create_card("weekly", "second", "<div>x</div>", 1, 2)
+    repository.update_position("weekly", "first", 3, 4)
+    repository.delete_card("weekly", "second")
+    assert repository.get_metadata("weekly") == Metadata("Week 12", True)
+    assert [(c.name, c.top, c.left) for c in repository.list_cards("weekly")] == [("first", 3, 4)]
+
+    repository.update_metadata("weekly", Metadata())
+    assert '"meta"' not in index.read_text()
