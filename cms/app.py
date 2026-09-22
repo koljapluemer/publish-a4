@@ -1,4 +1,5 @@
 import math
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,13 @@ def _string(value: dict[str, Any], key: str) -> str:
     if not isinstance(result, str):
         raise BadRequest(f"'{key}' must be a string.")
     return result
+
+
+def _string_list(value: dict[str, Any], key: str) -> tuple[str, ...]:
+    result = value.get(key)
+    if not isinstance(result, list) or not all(isinstance(item, str) for item in result):
+        raise BadRequest(f"'{key}' must be an array of strings.")
+    return tuple(result)
 
 
 def _boolean(value: dict[str, Any], key: str) -> bool:
@@ -107,9 +115,23 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
         body = _json_body()
         metadata = repository.update_metadata(
             collage,
-            Metadata(_string(body, "displayTitle"), _boolean(body, "publish")),
+            Metadata(
+                _string(body, "displayTitle"),
+                _boolean(body, "publish"),
+                _string_list(body, "tags"),
+            ),
         )
         return jsonify(metadata.as_json())
+
+    @app.put("/api/collages/<collage>/name")
+    def rename_collage(collage: str):
+        new_name = _string(_json_body(), "name")
+        new_name = repository.rename_collage(collage, new_name)
+        old_output = settings.site_dir / collage
+        if old_output.exists() and old_output != settings.site_dir / new_name:
+            shutil.rmtree(old_output)
+        builder.build_collage(new_name, edit=True)
+        return jsonify(name=new_name)
 
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):

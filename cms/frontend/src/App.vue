@@ -21,6 +21,7 @@ const editor = ref<InstanceType<typeof CardEditor> | null>(null)
 const createCollageOpen = ref(false)
 const createCollageError = ref<string | null>(null)
 const creatingCollage = ref(false)
+const renamingCollage = ref(false)
 
 const dirty = computed(() => selectedCard.value !== null && source.value !== savedSource.value)
 
@@ -223,6 +224,22 @@ async function saveMetadata(value: Metadata) {
   }
 }
 
+async function renameCollage(name: string) {
+  if (!selectedCollage.value || renamingCollage.value) return
+  renamingCollage.value = true
+  error.value = null
+  try {
+    const result = await api.renameCollage(selectedCollage.value, name)
+    await refreshCollages()
+    selectedCollage.value = result.name
+    revision.value += 1
+  } catch (reason) {
+    report(reason)
+  } finally {
+    renamingCollage.value = false
+  }
+}
+
 function cardMoved(name: string, top: number, left: number) {
   const card = currentCards().find(item => item.name === name)
   if (card) Object.assign(card, { top, left })
@@ -277,8 +294,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
           @blur="save"
         />
         <MetadataEditor
+          :collage="selectedCollage || null"
           :metadata="collages.find(item => item.name === selectedCollage)?.metadata ?? null"
+          :renaming="renamingCollage"
           @save="saveMetadata"
+          @rename="renameCollage"
         />
       </div>
     </div>

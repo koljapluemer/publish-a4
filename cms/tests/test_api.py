@@ -14,7 +14,7 @@ def test_crud_api(config_path):
     assert response.status_code == 201
     assert response.json == {
         "name": "new-collage",
-        "metadata": {"displayTitle": "", "publish": False},
+        "metadata": {"displayTitle": "", "publish": False, "tags": []},
         "cards": [],
     }
     assert client.get("/preview/new-collage/").status_code == 200
@@ -84,20 +84,46 @@ def test_metadata_api(config_path, settings):
     assert client.get("/api/collages").json["collages"][0]["metadata"] == {
         "displayTitle": "",
         "publish": False,
+        "tags": [],
     }
 
     response = client.put(
         "/api/collages/weekly/metadata",
-        json={"displayTitle": "Week 12", "publish": True},
+        json={"displayTitle": "Week 12", "publish": True, "tags": ["a", "b"]},
     )
     assert response.status_code == 200
-    assert response.json == {"displayTitle": "Week 12", "publish": True}
+    assert response.json == {"displayTitle": "Week 12", "publish": True, "tags": ["a", "b"]}
     assert client.get("/api/collages").json["collages"][0]["metadata"] == response.json
 
     response = client.put(
-        "/api/collages/weekly/metadata", json={"displayTitle": "x", "publish": "yes"}
+        "/api/collages/weekly/metadata",
+        json={"displayTitle": "x", "publish": "yes", "tags": []},
+    )
+    assert response.status_code == 400
+    response = client.put(
+        "/api/collages/weekly/metadata",
+        json={"displayTitle": "x", "publish": True, "tags": ["ok", 1]},
     )
     assert response.status_code == 400
     assert client.put(
-        "/api/collages/missing/metadata", json={"displayTitle": "", "publish": False}
+        "/api/collages/missing/metadata",
+        json={"displayTitle": "", "publish": False, "tags": []},
+    ).status_code == 404
+
+
+def test_rename_collage_api(config_path):
+    client = create_app(config_path).test_client()
+
+    response = client.put("/api/collages/weekly/name", json={"name": "monthly"})
+    assert response.status_code == 200
+    assert response.json == {"name": "monthly"}
+    assert client.get("/api/collages").json["collages"][0]["name"] == "monthly"
+    assert client.get("/preview/monthly/").status_code == 200
+
+    response = client.put("/api/collages/monthly/name", json={"name": "../escape"})
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "invalid_name"
+
+    assert client.put(
+        "/api/collages/missing/name", json={"name": "anything"}
     ).status_code == 404

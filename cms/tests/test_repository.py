@@ -10,6 +10,23 @@ from cms.repository import (
 )
 
 
+def test_rename_collage(settings):
+    repository = Repository(settings)
+
+    assert repository.rename_collage("weekly", "monthly") == "monthly"
+    assert repository.list_collages() == ["monthly"]
+    assert not (settings.data_dir / "weekly").exists()
+    assert repository.get_card("monthly", "first").source == "<article>First</article>\n"
+
+    repository.create_collage("other")
+    with pytest.raises(CollageConflict):
+        repository.rename_collage("monthly", "other")
+    with pytest.raises(InvalidName):
+        repository.rename_collage("monthly", "../escape")
+    with pytest.raises(NotFound):
+        repository.rename_collage("missing", "anything")
+
+
 def test_create_collage(settings):
     repository = Repository(settings)
 
@@ -68,14 +85,16 @@ def test_metadata_persists_alongside_placements(settings):
     index = settings.data_dir / "weekly" / "index.jsonl"
     assert repository.get_metadata("weekly") == Metadata()
 
-    repository.update_metadata("weekly", Metadata("Week 12", True))
-    assert index.read_text().splitlines()[0] == '{"meta":{"displayTitle":"Week 12","publish":true}}'
-    assert repository.get_metadata("weekly") == Metadata("Week 12", True)
+    repository.update_metadata("weekly", Metadata("Week 12", True, ("a", "b")))
+    assert index.read_text().splitlines()[0] == (
+        '{"meta":{"displayTitle":"Week 12","publish":true,"tags":["a","b"]}}'
+    )
+    assert repository.get_metadata("weekly") == Metadata("Week 12", True, ("a", "b"))
 
     repository.create_card("weekly", "second", "<div>x</div>", 1, 2)
     repository.update_position("weekly", "first", 3, 4)
     repository.delete_card("weekly", "second")
-    assert repository.get_metadata("weekly") == Metadata("Week 12", True)
+    assert repository.get_metadata("weekly") == Metadata("Week 12", True, ("a", "b"))
     assert [(c.name, c.top, c.left) for c in repository.list_cards("weekly")] == [("first", 3, 4)]
 
     repository.update_metadata("weekly", Metadata())

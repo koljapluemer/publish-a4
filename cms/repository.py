@@ -53,9 +53,14 @@ class Card(Placement):
 class Metadata:
     display_title: str = ""
     publish: bool = False
+    tags: tuple[str, ...] = ()
 
     def as_json(self) -> dict:
-        return {"displayTitle": self.display_title, "publish": self.publish}
+        return {
+            "displayTitle": self.display_title,
+            "publish": self.publish,
+            "tags": list(self.tags),
+        }
 
 
 class Repository:
@@ -130,6 +135,17 @@ class Repository:
             collage_dir.rmdir()
             raise
 
+    def rename_collage(self, collage: str, new_name: str) -> str:
+        collage_dir = self._collage_dir(collage)
+        new_name = self._validate_name(new_name, "collage")
+        if new_name == collage:
+            return collage
+        new_dir = self.settings.data_dir / new_name
+        if new_dir.exists():
+            raise CollageConflict(f"Collage '{new_name}' already exists.")
+        collage_dir.rename(new_dir)
+        return new_name
+
     def _read_index(self, collage_dir: Path) -> tuple[Metadata, list[Placement]]:
         metadata = Metadata()
         placements = []
@@ -142,7 +158,9 @@ class Repository:
                 value = json.loads(line)
                 if "meta" in value:
                     metadata = Metadata(
-                        value["meta"]["displayTitle"], value["meta"]["publish"]
+                        value["meta"]["displayTitle"],
+                        value["meta"]["publish"],
+                        tuple(value["meta"].get("tags", [])),
                     )
                 else:
                     placements.append(

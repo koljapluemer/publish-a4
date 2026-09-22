@@ -44,6 +44,14 @@ export function updateMetadata(collage: string, value: Metadata): Promise<Metada
   })
 }
 
+export function renameCollage(collage: string, name: string): Promise<{ name: string }> {
+  return request<{ name: string }>(`/api/collages/${encodeURIComponent(collage)}/name`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+}
+
 export function getCard(collage: string, card: string): Promise<Card> {
   return request<Card>(cardUrl(collage, card))
 }

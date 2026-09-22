@@ -72,6 +72,29 @@ button.danger { color: #b91c1c; }
 .metadata-panel label { display: grid; gap: 4px; font-weight: 600; }
 .metadata-panel label.checkbox { display: flex; align-items: center; gap: 6px; }
 .metadata-panel input[type="text"] { padding: 5px 8px; }
+.rename-form { display: flex; align-items: flex-end; gap: 6px; }
+.rename-form label { flex: 1; }
+.tag-input { display: flex; gap: 6px; }
+.tag-input input { flex: 1; padding: 5px 8px; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 400;
+}
+.tag button {
+  min-height: auto;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
 .editor-host, .editor-host .cm-editor { height: 100%; }
 .editor-host .cm-scroller { overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .editor-host.hidden { visibility: hidden; }

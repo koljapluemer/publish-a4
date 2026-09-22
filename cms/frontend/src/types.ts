@@ -11,6 +11,7 @@ export interface Card extends Placement {
 export interface Metadata {
   displayTitle: string
   publish: boolean
+  tags: string[]
 }
 
 export interface Collage {
