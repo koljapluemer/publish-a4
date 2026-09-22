@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import Settings
@@ -61,6 +62,15 @@ class Metadata:
             "publish": self.publish,
             "tags": list(self.tags),
         }
+
+
+@dataclass(frozen=True)
+class Timestamps:
+    created_at: str
+    updated_at: str
+
+    def as_json(self) -> dict:
+        return {"createdAt": self.created_at, "updatedAt": self.updated_at}
 
 
 class Repository:
@@ -128,7 +138,8 @@ class Repository:
         collage_dir.mkdir(parents=True)
         try:
             (collage_dir / "cards").mkdir()
-            self._atomic_write(collage_dir / "index.jsonl", "")
+            now = self._timestamp()
+            self._write_index(collage_dir, Timestamps(now, now), Metadata(), [])
         except Exception:
             (collage_dir / "index.jsonl").unlink(missing_ok=True)
             (collage_dir / "cards").rmdir()
@@ -143,10 +154,18 @@ class Repository:
         new_dir = self.settings.data_dir / new_name
         if new_dir.exists():
             raise CollageConflict(f"Collage '{new_name}' already exists.")
+        self._touch(collage_dir)
         collage_dir.rename(new_dir)
         return new_name
 
-    def _read_index(self, collage_dir: Path) -> tuple[Metadata, list[Placement]]:
+    @staticmethod
+    def _timestamp() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _read_index(
+        self, collage_dir: Path
+    ) -> tuple[Timestamps | None, Metadata, list[Placement]]:
+        timestamps = None
         metadata = Metadata()
         placements = []
         for number, line in enumerate(
@@ -156,7 +175,12 @@ class Repository:
                 continue
             try:
                 value = json.loads(line)
-                if "meta" in value:
+                if "timestamps" in value:
+                    timestamps = Timestamps(
+                        value["timestamps"]["createdAt"],
+                        value["timestamps"]["updatedAt"],
+                    )
+                elif "meta" in value:
                     metadata = Metadata(
                         value["meta"]["displayTitle"],
                         value["meta"]["publish"],
@@ -170,15 +194,21 @@ class Repository:
                 raise ValueError(
                     f"Invalid line in {collage_dir.name}/index.jsonl line {number}"
                 ) from error
-        return metadata, placements
+        return timestamps, metadata, placements
 
     def _read_placements(self, collage_dir: Path) -> list[Placement]:
-        return self._read_index(collage_dir)[1]
+        return self._read_index(collage_dir)[2]
 
     def _write_index(
-        self, collage_dir: Path, metadata: Metadata, placements: list[Placement]
+        self,
+        collage_dir: Path,
+        timestamps: Timestamps,
+        metadata: Metadata,
+        placements: list[Placement],
     ) -> None:
-        lines = [{"meta": metadata.as_json()}] if metadata != Metadata() else []
+        lines = [{"timestamps": timestamps.as_json()}]
+        if metadata != Metadata():
+            lines.append({"meta": metadata.as_json()})
         lines += [
             {"card": item.name, "top": item.top, "left": item.left}
             for item in placements
@@ -187,14 +217,33 @@ class Repository:
         self._atomic_write(collage_dir / "index.jsonl", content)
 
     def _write_placements(self, collage_dir: Path, placements: list[Placement]) -> None:
-        self._write_index(collage_dir, self._read_index(collage_dir)[0], placements)
+        timestamps, metadata, _ = self._read_index(collage_dir)
+        self._write_index(
+            collage_dir, self._updated_timestamps(timestamps), metadata, placements
+        )
+
+    def _updated_timestamps(self, timestamps: Timestamps | None) -> Timestamps:
+        now = self._timestamp()
+        return Timestamps(timestamps.created_at if timestamps else now, now)
+
+    def _touch(self, collage_dir: Path) -> None:
+        timestamps, metadata, placements = self._read_index(collage_dir)
+        self._write_index(
+            collage_dir, self._updated_timestamps(timestamps), metadata, placements
+        )
+
+    def get_timestamps(self, collage: str) -> Timestamps | None:
+        return self._read_index(self._collage_dir(collage))[0]
 
     def get_metadata(self, collage: str) -> Metadata:
-        return self._read_index(self._collage_dir(collage))[0]
+        return self._read_index(self._collage_dir(collage))[1]
 
     def update_metadata(self, collage: str, metadata: Metadata) -> Metadata:
         collage_dir = self._collage_dir(collage)
-        self._write_index(collage_dir, metadata, self._read_placements(collage_dir))
+        timestamps, _, placements = self._read_index(collage_dir)
+        self._write_index(
+            collage_dir, self._updated_timestamps(timestamps), metadata, placements
+        )
         return metadata
 
     def list_cards(self, collage: str) -> list[Placement]:
@@ -260,7 +309,9 @@ class Repository:
 
     def update_card(self, collage: str, card: str, source: str) -> Card:
         current = self.get_card(collage, card)
-        self._atomic_write(self._card_path(self._collage_dir(collage), card), source)
+        collage_dir = self._collage_dir(collage)
+        self._atomic_write(self._card_path(collage_dir, card), source)
+        self._touch(collage_dir)
         return Card(card, current.top, current.left, source)
 
     def update_position(

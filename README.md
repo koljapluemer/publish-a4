@@ -45,6 +45,13 @@ Each placement is one JSON object per line:
 {"card":"weather","top":10,"left":14}
 ```
 
+Each collage also has an internal timestamp line. The editor maintains these UTC timestamps
+automatically; they are not shown in its interface:
+
+```json
+{"timestamps":{"createdAt":"2026-09-22T10:15:30Z","updatedAt":"2026-09-22T10:15:30Z"}}
+```
+
 Collage metadata (`displayTitle`, `publish`) is an optional `{"meta":...}` line, edited in the
 sidebar below the card editor. Without it the defaults are `""` and `false`:
 
@@ -111,4 +118,5 @@ Run the standalone build when the desired final state should contain no editor h
 - `cms/frontend/`: Vue editor.
 
 The filesystem remains the source of truth. There is no database, asset manager, card rename,
-or collage CRUD layer.
+or collage CRUD layer. See [Filesystem layout](docs/filesystem.md) for the complete on-disk
+structure and read/write behaviour.

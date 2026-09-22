@@ -7,6 +7,7 @@ from cms.repository import (
     Metadata,
     NotFound,
     Repository,
+    Timestamps,
 )
 
 
@@ -27,13 +28,17 @@ def test_rename_collage(settings):
         repository.rename_collage("missing", "anything")
 
 
-def test_create_collage(settings):
+def test_create_collage(settings, monkeypatch):
     repository = Repository(settings)
+    monkeypatch.setattr(repository, "_timestamp", lambda: "2026-09-22T10:15:30Z")
 
     repository.create_collage("new-collage")
 
     assert repository.list_collages() == ["new-collage", "weekly"]
     assert repository.list_cards("new-collage") == []
+    assert repository.get_timestamps("new-collage") == Timestamps(
+        "2026-09-22T10:15:30Z", "2026-09-22T10:15:30Z"
+    )
     assert (settings.data_dir / "new-collage" / "cards").is_dir()
 
     with pytest.raises(CollageConflict):
@@ -86,7 +91,7 @@ def test_metadata_persists_alongside_placements(settings):
     assert repository.get_metadata("weekly") == Metadata()
 
     repository.update_metadata("weekly", Metadata("Week 12", True, ("a", "b")))
-    assert index.read_text().splitlines()[0] == (
+    assert index.read_text().splitlines()[1] == (
         '{"meta":{"displayTitle":"Week 12","publish":true,"tags":["a","b"]}}'
     )
     assert repository.get_metadata("weekly") == Metadata("Week 12", True, ("a", "b"))
@@ -99,3 +104,37 @@ def test_metadata_persists_alongside_placements(settings):
 
     repository.update_metadata("weekly", Metadata())
     assert '"meta"' not in index.read_text()
+
+
+def test_mutations_preserve_created_and_advance_updated(settings, monkeypatch):
+    repository = Repository(settings)
+    times = iter(
+        [
+            "2026-09-22T10:00:00Z",
+            "2026-09-22T10:01:00Z",
+            "2026-09-22T10:02:00Z",
+            "2026-09-22T10:03:00Z",
+        ]
+    )
+    monkeypatch.setattr(repository, "_timestamp", lambda: next(times))
+
+    # The fixture represents a legacy collage without timestamps.
+    repository.create_card("weekly", "second", "<div>Second</div>", 1, 2)
+    assert repository.get_timestamps("weekly") == Timestamps(
+        "2026-09-22T10:00:00Z", "2026-09-22T10:00:00Z"
+    )
+
+    repository.update_card("weekly", "second", "<div>Updated</div>")
+    assert repository.get_timestamps("weekly") == Timestamps(
+        "2026-09-22T10:00:00Z", "2026-09-22T10:01:00Z"
+    )
+
+    repository.update_metadata("weekly", Metadata("Weekly", False))
+    assert repository.get_timestamps("weekly") == Timestamps(
+        "2026-09-22T10:00:00Z", "2026-09-22T10:02:00Z"
+    )
+
+    repository.rename_collage("weekly", "monthly")
+    assert repository.get_timestamps("monthly") == Timestamps(
+        "2026-09-22T10:00:00Z", "2026-09-22T10:03:00Z"
+    )

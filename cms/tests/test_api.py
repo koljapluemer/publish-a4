@@ -9,6 +9,7 @@ def test_crud_api(config_path):
     response = client.get("/api/collages")
     assert response.status_code == 200
     assert response.json["collages"][0]["name"] == "weekly"
+    assert "timestamps" not in response.json["collages"][0]
 
     response = client.post("/api/collages", json={"name": "new-collage"})
     assert response.status_code == 201
