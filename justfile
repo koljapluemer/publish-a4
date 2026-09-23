@@ -21,7 +21,25 @@ dev:
 generate:
     uv run --project cms python -m cms.builder
 
-# Rebuild the frontend and restart the a4 user service.
+# Rebuild the frontend, (re)write the a4 user service and restart it.
 reinstall:
+    #!/usr/bin/env bash
+    set -euo pipefail
     npm --prefix cms/frontend run build
+    unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+    mkdir -p "$unit_dir"
+    cat > "$unit_dir/a4.service" <<EOF
+    [Unit]
+    Description=a4 CMS
+
+    [Service]
+    WorkingDirectory={{justfile_directory()}}
+    ExecStart=$(command -v uv) run --project cms flask --app 'cms.app:create_app()' run --port 8000
+    Restart=on-failure
+
+    [Install]
+    WantedBy=default.target
+    EOF
+    systemctl --user daemon-reload
+    systemctl --user enable a4.service
     systemctl --user restart a4.service
