@@ -2,11 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as api from './api'
 import type { Card, Collage, Metadata } from './types'
+import CanvasTools from './components/CanvasTools.vue'
 import CardEditor from './components/CardEditor.vue'
+import CollageList from './components/CollageList.vue'
 import CollagePreview from './components/CollagePreview.vue'
 import MetadataEditor from './components/MetadataEditor.vue'
-import NewCollageDialog from './components/NewCollageDialog.vue'
-import Toolbar from './components/Toolbar.vue'
 
 const collages = ref<Collage[]>([])
 const selectedCollage = ref('')
@@ -18,7 +18,6 @@ const revision = ref(0)
 const error = ref<string | null>(null)
 const creating = ref(false)
 const editor = ref<InstanceType<typeof CardEditor> | null>(null)
-const createCollageOpen = ref(false)
 const createCollageError = ref<string | null>(null)
 const creatingCollage = ref(false)
 const renamingCollage = ref(false)
@@ -173,14 +172,8 @@ async function createImage() {
   }
 }
 
-async function openCreateCollage() {
-  if (!await mayDiscard()) return
-  createCollageError.value = null
-  createCollageOpen.value = true
-}
-
 async function createCollage(name: string) {
-  if (creatingCollage.value) return
+  if (creatingCollage.value || !await mayDiscard()) return
   creatingCollage.value = true
   createCollageError.value = null
   try {
@@ -188,7 +181,6 @@ async function createCollage(name: string) {
     await refreshCollages()
     selectedCollage.value = collage.name
     clearCard()
-    createCollageOpen.value = false
     revision.value += 1
   } catch (reason) {
     createCollageError.value = reason instanceof Error ? reason.message : String(reason)
@@ -260,24 +252,15 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 
 <template>
   <main class="app-shell">
-    <Toolbar
+    <CollageList
       :collages="collages"
       :selected-collage="selectedCollage"
-      :selected-card="selectedCard?.name || null"
-      :dirty="dirty"
-      :saving="saving"
-      :creating="creating"
-      @select-collage="chooseCollage"
-      @create-collage="openCreateCollage"
-      @create="create"
-      @create-image="createImage"
-      @delete="remove"
+      :error="createCollageError"
+      :busy="creatingCollage"
+      @select="chooseCollage"
+      @create="createCollage"
     />
-    <div v-if="error" class="error-bar">
-      <span>{{ error }}</span>
-      <button aria-label="Dismiss error" @click="error = null">×</button>
-    </div>
-    <div class="workspace">
+    <div class="canvas">
       <CollagePreview
         :collage="selectedCollage"
         :revision="revision"
@@ -285,29 +268,38 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         @card-moved="cardMoved"
         @error="report"
       />
-      <div class="sidebar">
-        <CardEditor
-          ref="editor"
-          v-model="source"
-          :disabled="!selectedCard"
-          @save="save"
-          @blur="save"
-        />
-        <MetadataEditor
-          :collage="selectedCollage || null"
-          :metadata="collages.find(item => item.name === selectedCollage)?.metadata ?? null"
-          :renaming="renamingCollage"
-          @save="saveMetadata"
-          @rename="renameCollage"
-        />
+      <div v-if="error" class="error-bar">
+        <span>{{ error }}</span>
+        <button aria-label="Dismiss error" @click="error = null">×</button>
       </div>
+      <CanvasTools
+        :has-collage="!!selectedCollage"
+        :has-card="!!selectedCard"
+        :saving="saving"
+        :creating="creating"
+        @create="create"
+        @create-image="createImage"
+        @delete="remove"
+      />
     </div>
-    <NewCollageDialog
-      :open="createCollageOpen"
-      :error="createCollageError"
-      :busy="creatingCollage"
-      @close="createCollageOpen = false"
-      @create="createCollage"
-    />
+    <div class="sidebar">
+      <div v-if="selectedCard" class="current-card">
+        {{ selectedCard.name }}.html<span v-if="dirty || saving" class="dirty" :title="saving ? 'Saving' : 'Unsaved changes'"> ●</span>
+      </div>
+      <CardEditor
+        ref="editor"
+        v-model="source"
+        :disabled="!selectedCard"
+        @save="save"
+        @blur="save"
+      />
+      <MetadataEditor
+        :collage="selectedCollage || null"
+        :metadata="collages.find(item => item.name === selectedCollage)?.metadata ?? null"
+        :renaming="renamingCollage"
+        @save="saveMetadata"
+        @rename="renameCollage"
+      />
+    </div>
   </main>
 </template>
