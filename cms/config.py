@@ -11,6 +11,7 @@ DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.yml"
 class Settings:
     data_dir: Path
     site_dir: Path
+    export_dir: Path
 
 
 def load_settings(path: Path = DEFAULT_CONFIG) -> Settings:
@@ -22,7 +23,7 @@ def load_settings(path: Path = DEFAULT_CONFIG) -> Settings:
         )
 
     values = yaml.safe_load(path.read_text()) or {}
-    missing = [key for key in ("data_dir", "site_dir") if key not in values]
+    missing = [key for key in ("data_dir", "site_dir", "export_dir") if key not in values]
     if missing:
         raise ValueError(f"missing config value: {', '.join(missing)}")
 
@@ -32,4 +33,8 @@ def load_settings(path: Path = DEFAULT_CONFIG) -> Settings:
             candidate = path.parent / candidate
         return candidate.resolve()
 
-    return Settings(resolve(values["data_dir"]), resolve(values["site_dir"]))
+    return Settings(
+        resolve(values["data_dir"]),
+        resolve(values["site_dir"]),
+        resolve(values["export_dir"]),
+    )

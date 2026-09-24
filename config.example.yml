@@ -2,3 +2,4 @@
 # Paths may be absolute, ~-prefixed, or relative to this file.
 data_dir: ~/collages/data   # one subdir per collage
 site_dir: ~/collages/_site  # generated HTML goes here
+export_dir: ~/collages/export  # PDF and WebP renders of every collage

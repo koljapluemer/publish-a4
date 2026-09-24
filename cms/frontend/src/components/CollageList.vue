@@ -7,11 +7,14 @@ const props = defineProps<{
   selectedCollage: string
   error: string | null
   busy: boolean
+  exporting: boolean
+  exportStatus: string | null
 }>()
 
 const emit = defineEmits<{
   select: [name: string]
   create: [name: string]
+  export: []
 }>()
 
 const name = ref('')
@@ -46,5 +49,9 @@ watch(() => props.selectedCollage, selected => {
         </button>
       </li>
     </ul>
+    <button type="button" class="export-button" :disabled="exporting" @click="emit('export')">
+      {{ exporting ? 'Exporting…' : 'Export all' }}
+    </button>
+    <p v-if="exportStatus" class="collage-list-status">{{ exportStatus }}</p>
   </nav>
 </template>

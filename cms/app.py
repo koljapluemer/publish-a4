@@ -8,6 +8,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 
 from .builder import Builder
 from .config import DEFAULT_CONFIG, load_settings
+from .exporter import ExportError, Exporter
 from .repository import Metadata, Repository, RepositoryError
 
 
@@ -71,11 +72,13 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
     settings = load_settings(Path(config_path))
     repository = Repository(settings)
     builder = Builder(settings, repository)
+    exporter = Exporter(settings, repository)
     app = Flask(__name__, static_folder=None)
     builder.build_all(edit=True)
 
     @app.errorhandler(RepositoryError)
-    def repository_error(error: RepositoryError):
+    @app.errorhandler(ExportError)
+    def repository_error(error: RepositoryError | ExportError):
         return jsonify(error={"code": error.code, "message": str(error)}), error.status
 
     @app.errorhandler(HTTPException)
@@ -132,6 +135,10 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
             shutil.rmtree(old_output)
         builder.build_collage(new_name, edit=True)
         return jsonify(name=new_name)
+
+    @app.post("/api/export")
+    def export_all():
+        return jsonify(collages=exporter.export_all())
 
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):

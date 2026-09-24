@@ -1,8 +1,8 @@
 # Filesystem layout
 
 The filesystem is the application's source of truth. There is no database. Two configured
-directories hold mutable state: `data_dir` contains the editable source data and `site_dir`
-contains generated output.
+Three configured directories hold mutable state: `data_dir` contains the editable source data,
+`site_dir` contains generated HTML, and `export_dir` contains rendered PDFs and images.
 
 ## Configuration
 
@@ -11,9 +11,10 @@ By default, the app reads `config.yml` in the repository root:
 ```yaml
 data_dir: ~/collages/data
 site_dir: ~/collages/_site
+export_dir: ~/collages/export
 ```
 
-Both values are required. Absolute paths are used as written, `~` is expanded, and relative
+All three values are required. Absolute paths are used as written, `~` is expanded, and relative
 paths are resolved relative to the configuration file. A different configuration file can be
 passed to the builder with `--config`; `create_app()` also accepts a configuration path.
 
@@ -110,6 +111,33 @@ API rebuild the affected collage. Renaming also removes the old generated direct
 Only known collages are rebuilt. If a source collage is removed manually, a matching stale
 directory in `site_dir` is not cleaned up automatically. There is no collage-deletion endpoint.
 
+## Exported renders (`export_dir`)
+
+An export ("Export all" in the editor, `POST /api/export`, or `python -m cms.exporter`) covers
+every collage regardless of `publish`:
+
+```text
+<export_dir>/
+  index.json
+  <collage>.pdf
+  <collage>.webp
+  <collage>-thumbnail.webp
+```
+
+Each collage is built as standalone HTML (no editor hooks) in a temporary directory, which is
+deleted afterwards; `site_dir` is not touched. Chromium prints it to PDF using the page's
+`@page` size; the first PDF page is rendered to a 144 DPI WebP and a 600 px wide thumbnail.
+Existing files are overwritten in place.
+
+`index.json` is written after all renders succeed. It is an array in collage-name order:
+
+```json
+[{"name": "weekly", "displayTitle": "Week 12", "publish": true, "tags": ["weekly"]}]
+```
+
+After writing the manifest, `.pdf` and `.webp` files in `export_dir` that do not belong to a
+current collage (for example after a rename) are deleted. Other files are left alone.
+
 ## Frontend files
 
 At runtime Flask reads and serves the prebuilt editor from:
@@ -129,5 +157,5 @@ otherwise unchanged.
 ## Files not managed by the app
 
 The app does not create logs, caches, lock files, a database, or backups. Python, uv, npm, Vite,
-and the test runner may maintain their own environments and caches, but those are tooling files
+and Playwright may maintain their own environments and caches, but those are tooling files
 and are not read as collage data.

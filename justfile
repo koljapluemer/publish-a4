@@ -21,11 +21,16 @@ dev:
 generate:
     uv run --project cms python -m cms.builder
 
+# Render every collage to PDF and WebP in export_dir.
+export:
+    uv run --project cms python -m cms.exporter
+
 # Rebuild the frontend, (re)write the a4 user service and restart it.
 reinstall:
     #!/usr/bin/env bash
     set -euo pipefail
     npm --prefix cms/frontend run build
+    uv run --project cms playwright install chromium
     unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
     mkdir -p "$unit_dir"
     cat > "$unit_dir/a4.service" <<EOF

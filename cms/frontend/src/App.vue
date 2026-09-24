@@ -21,6 +21,8 @@ const editor = ref<InstanceType<typeof CardEditor> | null>(null)
 const createCollageError = ref<string | null>(null)
 const creatingCollage = ref(false)
 const renamingCollage = ref(false)
+const exporting = ref(false)
+const exportStatus = ref<string | null>(null)
 
 const dirty = computed(() => selectedCard.value !== null && source.value !== savedSource.value)
 
@@ -232,6 +234,22 @@ async function renameCollage(name: string) {
   }
 }
 
+async function exportAll() {
+  if (exporting.value) return
+  await save()
+  exporting.value = true
+  exportStatus.value = null
+  error.value = null
+  try {
+    const count = await api.exportAll()
+    exportStatus.value = `Exported ${count} collages`
+  } catch (reason) {
+    report(reason)
+  } finally {
+    exporting.value = false
+  }
+}
+
 function cardMoved(name: string, top: number, left: number) {
   const card = currentCards().find(item => item.name === name)
   if (card) Object.assign(card, { top, left })
@@ -258,7 +276,10 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       :error="createCollageError"
       :busy="creatingCollage"
       @select="chooseCollage"
+      :exporting="exporting"
+      :export-status="exportStatus"
       @create="createCollage"
+      @export="exportAll"
     />
     <div class="canvas">
       <CollagePreview

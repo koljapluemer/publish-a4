@@ -12,7 +12,8 @@ Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/),
 ```bash
 cp config.example.yml config.yml
 # Edit config.yml.
-uv sync --project cms --dev
+uv sync --project cms
+uv run --project cms playwright install chromium
 npm --prefix cms/frontend install
 npm --prefix cms/frontend run build
 ```
@@ -22,6 +23,7 @@ npm --prefix cms/frontend run build
 ```yaml
 data_dir: ~/collages/data
 site_dir: ~/collages/_site
+export_dir: ~/collages/export
 ```
 
 ## Data layout
@@ -92,7 +94,6 @@ Flask. `Ctrl-C` stops both processes.
 Checks:
 
 ```bash
-uv run --project cms python -m pytest cms/tests
 npm --prefix cms/frontend run typecheck
 npm --prefix cms/frontend run build
 ```
@@ -109,11 +110,26 @@ and print with margins set to "None". The page is exactly 297 × 210 mm.
 Running the editor and generating standalone output intentionally use the same site directory.
 Run the standalone build when the desired final state should contain no editor hooks.
 
+## Export PDFs and images
+
+Click "Export all" at the bottom of the collage list, or run:
+
+```bash
+just export
+```
+
+Every collage, published or not, is built as standalone HTML in a temporary directory, printed
+to PDF with headless Chromium, and written to `export_dir` as `<collage>.pdf`,
+`<collage>.webp` (144 DPI), and `<collage>-thumbnail.webp` (600 px wide). `index.json` lists
+each collage's name and metadata, so consumers can filter on `publish`.
+
 ## Code map
 
 - `cms/app.py`: Flask routes and JSON translation.
 - `cms/repository.py`: validated, atomic filesystem operations.
 - `cms/builder.py`: standalone and editor-preview generation.
+- `cms/exporter.py`: export of all collages to `export_dir`.
+- `cms/render.py`: Playwright PDF printing and PyMuPDF/Pillow WebP rendering.
 - `cms/collage.html.j2`: generated page wrapper.
 - `cms/frontend/`: Vue editor.
 
