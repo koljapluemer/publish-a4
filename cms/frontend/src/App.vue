@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as api from './api'
 import type { Card, Collage, Metadata } from './types'
 import CanvasTools from './components/CanvasTools.vue'
@@ -235,22 +235,36 @@ async function renameCollage(name: string) {
   }
 }
 
+let exportQueued = false
+
+// Requests arriving during an export queue one more run, so later edits are picked up.
 async function exportAll() {
-  if (exporting.value) return
+  if (exporting.value) {
+    exportQueued = true
+    return
+  }
   await save()
   exporting.value = true
   exportStatus.value = null
-  error.value = null
   try {
-    const count = await api.exportAll()
-    exportStatus.value = `Exported ${count} collages`
-    exportRevision.value += 1
+    const { total, rendered } = await api.exportAll()
+    exportStatus.value = `Rendered ${rendered} of ${total} collages`
+    if (rendered) exportRevision.value += 1
   } catch (reason) {
     report(reason)
   } finally {
     exporting.value = false
   }
+  if (exportQueued) {
+    exportQueued = false
+    await exportAll()
+  }
 }
+
+// Export in the background whenever the dashboard is shown, including on startup.
+watch(selectedCollage, name => {
+  if (!name) void exportAll()
+}, { immediate: true })
 
 function cardMoved(name: string, top: number, left: number) {
   const card = currentCards().find(item => item.name === name)

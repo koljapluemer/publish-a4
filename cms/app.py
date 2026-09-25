@@ -138,7 +138,8 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
 
     @app.post("/api/export")
     def export_all():
-        return jsonify(collages=exporter.export_all())
+        manifest, rendered = exporter.export_all()
+        return jsonify(collages=manifest, rendered=rendered)
 
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):

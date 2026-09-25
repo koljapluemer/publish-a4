@@ -52,9 +52,12 @@ export function renameCollage(collage: string, name: string): Promise<{ name: st
   })
 }
 
-export async function exportAll(): Promise<number> {
-  const result = await request<{ collages: unknown[] }>('/api/export', { method: 'POST' })
-  return result.collages.length
+export async function exportAll(): Promise<{ total: number; rendered: number }> {
+  const result = await request<{ collages: unknown[]; rendered: string[] }>(
+    '/api/export',
+    { method: 'POST' },
+  )
+  return { total: result.collages.length, rendered: result.rendered.length }
 }
 
 export function getCard(collage: string, card: string): Promise<Card> {
