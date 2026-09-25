@@ -42,9 +42,12 @@ button.danger { color: #b91c1c; }
 .collage-list ul { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
 .collage-list li button { width: 100%; min-height: 24px; padding: 2px 6px; overflow: hidden; border: 0; background: transparent; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .collage-list li button.active { background: #dbeafe; font-weight: 600; }
+.collage-list li button.dashboard-link { margin-bottom: 4px; border-bottom: 1px solid #d1d5db; border-radius: 0; font-weight: 600; }
 .collage-list-error { margin: 0; color: #b91c1c; font-size: 12px; }
 .collage-list .export-button { margin-top: auto; }
 .collage-list-status { margin: 0; color: #4b5563; font-size: 12px; }
+
+.app-shell.dashboard-mode { grid-template-columns: 180px minmax(0, 1fr); }
 
 .canvas { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .canvas-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
@@ -104,3 +107,10 @@ button.danger { color: #b91c1c; }
 .editor-host .cm-scroller { overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .editor-host.hidden { visibility: hidden; }
 .editor-empty { position: absolute; inset: 0; }
+
+.dashboard { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.dashboard-grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.dashboard-card { display: block; padding: 0; overflow: hidden; border-color: #d1d5db; border-radius: 2px; background: #fff; }
+.dashboard-card:hover:not(:disabled) { border-color: #2563eb; background: #fff; }
+.dashboard-card img { display: block; width: 100%; height: auto; }
+.dashboard-card-missing { display: grid; place-items: center; min-height: 120px; padding: 8px; color: #6b7280; overflow-wrap: anywhere; }

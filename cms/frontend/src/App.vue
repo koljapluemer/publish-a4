@@ -4,6 +4,7 @@ import * as api from './api'
 import type { Card, Collage, Metadata } from './types'
 import CanvasTools from './components/CanvasTools.vue'
 import CardEditor from './components/CardEditor.vue'
+import CollageDashboard from './components/CollageDashboard.vue'
 import CollageList from './components/CollageList.vue'
 import CollagePreview from './components/CollagePreview.vue'
 import MetadataEditor from './components/MetadataEditor.vue'
@@ -23,6 +24,7 @@ const creatingCollage = ref(false)
 const renamingCollage = ref(false)
 const exporting = ref(false)
 const exportStatus = ref<string | null>(null)
+const exportRevision = ref(0)
 
 const dirty = computed(() => selectedCard.value !== null && source.value !== savedSource.value)
 
@@ -48,7 +50,6 @@ async function refreshCollages() {
 async function initialize() {
   try {
     await refreshCollages()
-    selectedCollage.value = collages.value[0]?.name || ''
   } catch (value) {
     report(value)
   }
@@ -243,6 +244,7 @@ async function exportAll() {
   try {
     const count = await api.exportAll()
     exportStatus.value = `Exported ${count} collages`
+    exportRevision.value += 1
   } catch (reason) {
     report(reason)
   } finally {
@@ -269,7 +271,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 </script>
 
 <template>
-  <main class="app-shell">
+  <main class="app-shell" :class="{ 'dashboard-mode': !selectedCollage }">
     <CollageList
       :collages="collages"
       :selected-collage="selectedCollage"
@@ -282,7 +284,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       @export="exportAll"
     />
     <div class="canvas">
+      <CollageDashboard v-if="!selectedCollage" :collages="collages" :revision="exportRevision" @select="chooseCollage" />
       <CollagePreview
+        v-else
         :collage="selectedCollage"
         :revision="revision"
         @select-card="chooseCard"
@@ -294,6 +298,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         <button aria-label="Dismiss error" @click="error = null">×</button>
       </div>
       <CanvasTools
+        v-if="selectedCollage"
         :has-collage="!!selectedCollage"
         :has-card="!!selectedCard"
         :saving="saving"
@@ -303,7 +308,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         @delete="remove"
       />
     </div>
-    <div class="sidebar">
+    <div v-if="selectedCollage" class="sidebar">
       <div v-if="selectedCard" class="current-card">
         {{ selectedCard.name }}.html<span v-if="dirty || saving" class="dirty" :title="saving ? 'Saving' : 'Unsaved changes'"> ●</span>
       </div>

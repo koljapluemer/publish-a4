@@ -8,7 +8,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 
 from .builder import Builder
 from .config import DEFAULT_CONFIG, load_settings
-from .exporter import ExportError, Exporter
+from .exporter import ExportError, Exporter, rendered_files
 from .repository import Metadata, Repository, RepositoryError
 
 
@@ -211,6 +211,11 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
         if not (output_dir / "index.html").is_file():
             builder.build_collage(collage, edit=True)
         return send_from_directory(output_dir, filename)
+
+    @app.get("/thumbnails/<collage>")
+    def thumbnail(collage: str):
+        repository.list_cards(collage)
+        return send_from_directory(settings.export_dir, rendered_files(collage)[2])
 
     @app.get("/assets/<path:filename>")
     def frontend_asset(filename: str):

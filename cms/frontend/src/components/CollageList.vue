@@ -39,6 +39,16 @@ watch(() => props.selectedCollage, selected => {
     </form>
     <p v-if="error" class="collage-list-error">{{ error }}</p>
     <ul>
+      <li>
+        <button
+          type="button"
+          class="dashboard-link"
+          :class="{ active: !selectedCollage }"
+          @click="emit('select', '')"
+        >
+          Dashboard
+        </button>
+      </li>
       <li v-for="collage in collages" :key="collage.name">
         <button
           type="button"
