@@ -11,6 +11,7 @@ const emit = defineEmits<{
   selectCard: [card: string]
   cardMoved: [card: string, top: number, left: number]
   error: [message: string]
+  pasteImage: [image: File]
 }>()
 
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -31,6 +32,8 @@ function receive(event: MessageEvent<PreviewMessage>) {
     && typeof event.data.left === 'number'
   ) {
     emit('cardMoved', event.data.card, event.data.top, event.data.left)
+  } else if (event.data.type === 'image-pasted' && event.data.image) {
+    emit('pasteImage', event.data.image)
   } else if (event.data.type === 'save-error') {
     emit('error', event.data.message || 'Could not save the card position.')
   }

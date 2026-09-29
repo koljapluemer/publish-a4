@@ -141,23 +141,27 @@ async function create() {
   }
 }
 
-async function createImage() {
+async function readClipboardImage(): Promise<Blob> {
+  if (!navigator.clipboard?.read) {
+    throw new Error('Reading images from the clipboard is not supported by this browser.')
+  }
+  const items = await navigator.clipboard.read()
+  const item = items.find(value => value.types.some(type => type.startsWith('image/')))
+  const imageType = item?.types.find(type => type.startsWith('image/'))
+  if (!item || !imageType) throw new Error('The clipboard does not contain an image.')
+  return item.getType(imageType)
+}
+
+async function createImage(image?: Blob) {
   if (!selectedCollage.value || creating.value || !await mayDiscard()) return
   creating.value = true
   error.value = null
   try {
-    if (!navigator.clipboard?.read) {
-      throw new Error('Reading images from the clipboard is not supported by this browser.')
-    }
-    const items = await navigator.clipboard.read()
-    const item = items.find(value => value.types.some(type => type.startsWith('image/')))
-    const imageType = item?.types.find(type => type.startsWith('image/'))
-    if (!item || !imageType) throw new Error('The clipboard does not contain an image.')
-
+    image ??= await readClipboardImage()
     const offset = 10 + (currentCards().length % 10) * 5
     const card = await api.createImageCard(selectedCollage.value, {
       name: newCardName(),
-      image: await item.getType(imageType),
+      image,
       top: offset,
       left: offset,
     })
@@ -272,6 +276,20 @@ function cardMoved(name: string, top: number, left: number) {
   if (selectedCard.value?.name === name) Object.assign(selectedCard.value, { top, left })
 }
 
+function isEditable(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null
+  return !!element?.closest?.('input, textarea, select, [contenteditable]')
+}
+
+// Pasting an image anywhere outside a text field creates an image card.
+function paste(event: ClipboardEvent) {
+  if (!selectedCollage.value || isEditable(event.target)) return
+  const image = [...event.clipboardData?.files ?? []].find(file => file.type.startsWith('image/'))
+  if (!image) return
+  event.preventDefault()
+  void createImage(image)
+}
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (!dirty.value) return
   event.preventDefault()
@@ -279,9 +297,13 @@ function beforeUnload(event: BeforeUnloadEvent) {
 
 onMounted(() => {
   window.addEventListener('beforeunload', beforeUnload)
+  window.addEventListener('paste', paste)
   void initialize()
 })
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
+  window.removeEventListener('paste', paste)
+})
 </script>
 
 <template>
@@ -306,6 +328,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         @select-card="chooseCard"
         @card-moved="cardMoved"
         @error="report"
+        @paste-image="createImage"
       />
       <div v-if="error" class="error-bar">
         <span>{{ error }}</span>
@@ -318,7 +341,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
         :saving="saving"
         :creating="creating"
         @create="create"
-        @create-image="createImage"
+        @create-image="createImage()"
         @delete="remove"
       />
     </div>

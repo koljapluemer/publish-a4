@@ -83,6 +83,13 @@
       window.parent.postMessage({ source: 'a4-preview', type, ...detail }, window.location.origin);
     }
 
+    document.addEventListener('paste', event => {
+      const image = [...event.clipboardData.files].find(file => file.type.startsWith('image/'));
+      if (!image) return;
+      event.preventDefault();
+      notify('image-pasted', { image });
+    });
+
     document.querySelectorAll('[data-card]').forEach(card => {
       card.addEventListener('pointerdown', event => {
         event.preventDefault();

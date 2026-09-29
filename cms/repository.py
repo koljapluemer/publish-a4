@@ -10,6 +10,7 @@ from .config import Settings
 
 
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+ASSET_REF_PATTERN = re.compile(r"\.\./assets/([^\s\"'()<>?#/]+)")
 
 
 class RepositoryError(Exception):
@@ -289,10 +290,13 @@ class Repository:
     ) -> Card:
         collage_dir = self._collage_dir(collage)
         card = self._validate_name(card, "card")
+        assets_dir = collage_dir / "assets"
         asset_name = f"{card}.{extension}"
-        asset_path = collage_dir / "assets" / asset_name
-        if asset_path.exists():
-            raise Conflict(f"Asset '{asset_name}' already exists in '{collage}'.")
+        number = 2
+        while (assets_dir / asset_name).exists():
+            asset_name = f"{card}-{number}.{extension}"
+            number += 1
+        asset_path = assets_dir / asset_name
 
         self._atomic_write_bytes(asset_path, image)
         try:
@@ -307,10 +311,29 @@ class Repository:
             asset_path.unlink(missing_ok=True)
             raise
 
+    @staticmethod
+    def _asset_refs(source: str) -> set[str]:
+        return set(ASSET_REF_PATTERN.findall(source))
+
+    def _remove_unused_assets(self, collage_dir: Path, candidates: set[str]) -> None:
+        """Delete candidate assets no remaining card references."""
+        if not candidates:
+            return
+        used: set[str] = set()
+        for card_path in (collage_dir / "cards").glob("*.html"):
+            used |= self._asset_refs(card_path.read_text())
+        for name in candidates - used:
+            path = collage_dir / "assets" / name
+            if path.is_file():
+                path.unlink()
+
     def update_card(self, collage: str, card: str, source: str) -> Card:
         current = self.get_card(collage, card)
         collage_dir = self._collage_dir(collage)
         self._atomic_write(self._card_path(collage_dir, card), source)
+        self._remove_unused_assets(
+            collage_dir, self._asset_refs(current.source) - self._asset_refs(source)
+        )
         self._touch(collage_dir)
         return Card(card, current.top, current.left, source)
 
@@ -349,3 +372,4 @@ class Repository:
         except Exception:
             self._atomic_write(card_path, original_source)
             raise
+        self._remove_unused_assets(collage_dir, self._asset_refs(original_source))

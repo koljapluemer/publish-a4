@@ -22,8 +22,9 @@ export interface Collage {
 
 export interface PreviewMessage {
   source: 'a4-preview'
-  type: 'card-selected' | 'card-moved' | 'save-error'
+  type: 'card-selected' | 'card-moved' | 'save-error' | 'image-pasted'
   card?: string
+  image?: File
   top?: number
   left?: number
   message?: string
