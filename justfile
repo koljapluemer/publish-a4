@@ -38,8 +38,10 @@ reinstall:
     Description=a4 CMS
 
     [Service]
+    Type=exec
     WorkingDirectory={{justfile_directory()}}
     ExecStart=$(command -v uv) run --project cms flask --app 'cms.app:create_app()' run --port 8000
+    KillMode=control-group
     Restart=on-failure
 
     [Install]
@@ -47,4 +49,6 @@ reinstall:
     EOF
     systemctl --user daemon-reload
     systemctl --user enable a4.service
-    systemctl --user restart a4.service
+    systemctl --user stop a4.service
+    systemctl --user start a4.service
+    systemctl --user is-active --quiet a4.service
