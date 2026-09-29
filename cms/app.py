@@ -68,6 +68,28 @@ def _form_number(key: str) -> int | float:
     return result
 
 
+def _positive_form_number(key: str) -> int | float:
+    result = _form_number(key)
+    if result <= 0:
+        raise BadRequest(f"'{key}' must be greater than zero.")
+    return result
+
+
+def _uploaded_image(required: bool = True) -> tuple[bytes | None, str | None]:
+    image = request.files.get("image")
+    if image is None:
+        if required:
+            raise BadRequest("'image' must be an uploaded image.")
+        return None, None
+    extension = IMAGE_EXTENSIONS.get(image.mimetype)
+    if extension is None:
+        raise BadRequest("Image must be PNG, JPEG, GIF, or WebP.")
+    content = image.read()
+    if not content:
+        raise BadRequest("Image is empty.")
+    return content, extension
+
+
 def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
     settings = load_settings(Path(config_path))
     repository = Repository(settings)
@@ -141,6 +163,53 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
         manifest, rendered = exporter.export_all()
         return jsonify(collages=manifest, rendered=rendered)
 
+    @app.get("/api/stickers")
+    def list_stickers():
+        return jsonify(stickers=[item.as_json() for item in repository.list_stickers()])
+
+    @app.post("/api/stickers")
+    def create_sticker():
+        content, extension = _uploaded_image()
+        sticker = repository.create_sticker(
+            request.form.get("name", ""),
+            content or b"",
+            extension or "",
+            _positive_form_number("width"),
+            _positive_form_number("height"),
+        )
+        return jsonify(sticker.as_json()), 201
+
+    @app.put("/api/stickers/<sticker>")
+    def update_sticker(sticker: str):
+        content, extension = _uploaded_image(required=False)
+        updated = repository.update_sticker(
+            sticker,
+            _positive_form_number("width"),
+            _positive_form_number("height"),
+            content,
+            extension,
+        )
+        return jsonify(updated.as_json())
+
+    @app.delete("/api/stickers/<sticker>")
+    def delete_sticker(sticker: str):
+        repository.delete_sticker(sticker)
+        return Response(status=204)
+
+    @app.get("/api/stickers/<sticker>/image")
+    def sticker_image(sticker: str):
+        path = repository.sticker_image_path(sticker)
+        return send_from_directory(path.parent, path.name)
+
+    @app.post("/api/collages/<collage>/stickers/<sticker>")
+    def create_sticker_card(collage: str, sticker: str):
+        body = _json_body()
+        card = repository.create_sticker_card(
+            collage, sticker, _number(body, "top"), _number(body, "left")
+        )
+        builder.build_collage(collage, edit=True)
+        return jsonify(card.as_json()), 201
+
     @app.get("/api/collages/<collage>/cards/<card>")
     def get_card(collage: str, card: str):
         return jsonify(repository.get_card(collage, card).as_json())
@@ -160,21 +229,13 @@ def create_app(config_path: str | Path = DEFAULT_CONFIG) -> Flask:
 
     @app.post("/api/collages/<collage>/image-cards")
     def create_image_card(collage: str):
-        image = request.files.get("image")
-        if image is None:
-            raise BadRequest("'image' must be an uploaded image.")
-        extension = IMAGE_EXTENSIONS.get(image.mimetype)
-        if extension is None:
-            raise BadRequest("Image must be PNG, JPEG, GIF, or WebP.")
-        content = image.read()
-        if not content:
-            raise BadRequest("Image is empty.")
+        content, extension = _uploaded_image()
 
         card = repository.create_image_card(
             collage,
             request.form.get("name", ""),
-            content,
-            extension,
+            content or b"",
+            extension or "",
             _form_number("top"),
             _form_number("left"),
         )

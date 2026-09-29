@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 import tempfile
@@ -34,6 +35,10 @@ class Conflict(RepositoryError):
 
 class CollageConflict(Conflict):
     code = "collage_exists"
+
+
+class StickerConflict(Conflict):
+    code = "sticker_exists"
 
 
 @dataclass(frozen=True)
@@ -74,6 +79,17 @@ class Timestamps:
         return {"createdAt": self.created_at, "updatedAt": self.updated_at}
 
 
+@dataclass(frozen=True)
+class Sticker:
+    name: str
+    file: str
+    width: float
+    height: float
+
+    def as_json(self) -> dict:
+        return asdict(self)
+
+
 class Repository:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -96,6 +112,14 @@ class Repository:
     def _card_path(self, collage_dir: Path, card: str) -> Path:
         card = self._validate_name(card, "card")
         return collage_dir / "cards" / f"{card}.html"
+
+    @property
+    def _stickers_dir(self) -> Path:
+        return self.settings.data_dir / "_stickers"
+
+    @property
+    def _stickers_index(self) -> Path:
+        return self._stickers_dir / "stickers.json"
 
     @staticmethod
     def _atomic_write(path: Path, content: str) -> None:
@@ -130,8 +154,135 @@ class Repository:
             if path.is_dir() and (path / "index.jsonl").is_file()
         )
 
+    def list_stickers(self) -> list[Sticker]:
+        if not self._stickers_index.is_file():
+            return []
+        try:
+            values = json.loads(self._stickers_index.read_text())
+            if not isinstance(values, list):
+                raise TypeError
+            stickers = []
+            for value in values:
+                name = self._validate_name(value["name"], "sticker")
+                file = value["file"]
+                width = float(value["width"])
+                height = float(value["height"])
+                if not isinstance(file, str) or Path(file).name != file:
+                    raise ValueError
+                if not math.isfinite(width) or not math.isfinite(height):
+                    raise ValueError
+                if width <= 0 or height <= 0:
+                    raise ValueError
+                stickers.append(Sticker(name, file, width, height))
+            return stickers
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+            raise ValueError(f"Invalid sticker library: {self._stickers_index}") from error
+
+    def _write_stickers(self, stickers: list[Sticker]) -> None:
+        content = json.dumps(
+            [sticker.as_json() for sticker in stickers], indent=2
+        ) + "\n"
+        self._atomic_write(self._stickers_index, content)
+
+    def get_sticker(self, name: str) -> Sticker:
+        name = self._validate_name(name, "sticker")
+        sticker = next(
+            (item for item in self.list_stickers() if item.name == name), None
+        )
+        if sticker is None or not (self._stickers_dir / "images" / sticker.file).is_file():
+            raise NotFound(f"Sticker '{name}' does not exist.")
+        return sticker
+
+    def sticker_image_path(self, name: str) -> Path:
+        sticker = self.get_sticker(name)
+        return self._stickers_dir / "images" / sticker.file
+
+    def create_sticker(
+        self, name: str, image: bytes, extension: str, width: float, height: float
+    ) -> Sticker:
+        name = self._validate_name(name, "sticker")
+        stickers = self.list_stickers()
+        if any(item.name == name for item in stickers):
+            raise StickerConflict(f"Sticker '{name}' already exists.")
+        sticker = Sticker(name, f"{name}.{extension}", width, height)
+        image_path = self._stickers_dir / "images" / sticker.file
+        self._atomic_write_bytes(image_path, image)
+        try:
+            self._write_stickers([*stickers, sticker])
+        except Exception:
+            image_path.unlink(missing_ok=True)
+            raise
+        return sticker
+
+    def update_sticker(
+        self,
+        name: str,
+        width: float,
+        height: float,
+        image: bytes | None = None,
+        extension: str | None = None,
+    ) -> Sticker:
+        current = self.get_sticker(name)
+        stickers = self.list_stickers()
+        file = f"{name}.{extension}" if image is not None and extension else current.file
+        updated = Sticker(name, file, width, height)
+        old_path = self._stickers_dir / "images" / current.file
+        new_path = self._stickers_dir / "images" / file
+        if image is not None:
+            self._atomic_write_bytes(new_path, image)
+        try:
+            self._write_stickers(
+                [updated if item.name == name else item for item in stickers]
+            )
+        except Exception:
+            if image is not None and new_path != old_path:
+                new_path.unlink(missing_ok=True)
+            raise
+        if image is not None and new_path != old_path:
+            old_path.unlink(missing_ok=True)
+        return updated
+
+    def delete_sticker(self, name: str) -> None:
+        sticker = self.get_sticker(name)
+        self._write_stickers(
+            [item for item in self.list_stickers() if item.name != name]
+        )
+        (self._stickers_dir / "images" / sticker.file).unlink(missing_ok=True)
+
+    def create_sticker_card(
+        self, collage: str, sticker_name: str, top: float, left: float
+    ) -> Card:
+        sticker = self.get_sticker(sticker_name)
+        collage_dir = self._collage_dir(collage)
+        taken = {item.name for item in self._read_placements(collage_dir)}
+        card = f"sticker-{sticker.name}"
+        number = 2
+        while card in taken or self._card_path(collage_dir, card).exists():
+            card = f"sticker-{sticker.name}-{number}"
+            number += 1
+
+        source_path = self._stickers_dir / "images" / sticker.file
+        extension = Path(sticker.file).suffix
+        asset_name = f"{card}{extension}"
+        asset_path = collage_dir / "assets" / asset_name
+        self._atomic_write_bytes(asset_path, source_path.read_bytes())
+        source = (
+            f'<div class="sticker" style="width:{sticker.width:g}mm;'
+            f'height:{sticker.height:g}mm">'
+            f'<img src="../assets/{asset_name}" alt="" '
+            'style="display:block;width:100%;height:100%;object-fit:contain">'
+            '</div>\n'
+        )
+        try:
+            return self.create_card(collage, card, source, top, left)
+        except Exception:
+            asset_path.unlink(missing_ok=True)
+            raise
+
     def create_collage(self, collage: str) -> None:
         collage = self._validate_name(collage, "collage")
+        if collage == "_stickers":
+            raise InvalidName("'_stickers' is reserved for the sticker library.")
         collage_dir = self.settings.data_dir / collage
         if collage_dir.exists():
             raise CollageConflict(f"Collage '{collage}' already exists.")
@@ -150,6 +301,8 @@ class Repository:
     def rename_collage(self, collage: str, new_name: str) -> str:
         collage_dir = self._collage_dir(collage)
         new_name = self._validate_name(new_name, "collage")
+        if new_name == "_stickers":
+            raise InvalidName("'_stickers' is reserved for the sticker library.")
         if new_name == collage:
             return collage
         new_dir = self.settings.data_dir / new_name

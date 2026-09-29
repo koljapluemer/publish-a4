@@ -53,6 +53,26 @@ button.danger { color: #b91c1c; }
 .canvas-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
 .canvas-tools button { display: grid; place-items: center; min-height: 28px; width: 28px; padding: 0; }
 
+.sticker-palette { position: absolute; z-index: 2; top: 44px; right: 8px; display: grid; gap: 8px; width: 310px; max-height: calc(100% - 52px); padding: 8px; overflow: auto; border: 1px solid #9ca3af; border-radius: 4px; background: #f9fafb; box-shadow: 0 3px 12px rgb(0 0 0 / .25); }
+.sticker-palette header { display: flex; align-items: center; justify-content: space-between; }
+.sticker-palette header button { min-height: auto; padding: 0 5px; border: 0; background: transparent; font-size: 18px; }
+.sticker-list { display: grid; gap: 6px; }
+.sticker-row { display: grid; grid-template-columns: 72px 1fr; gap: 6px; padding: 6px; border: 1px solid #d1d5db; background: #fff; }
+.sticker-preview { display: grid; grid-row: span 2; gap: 3px; place-items: center; min-width: 0; padding: 4px; overflow: hidden; }
+.sticker-preview img { width: 56px; height: 48px; object-fit: contain; }
+.sticker-preview span { width: 100%; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.sticker-fields { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.sticker-fields label { display: flex; align-items: center; gap: 2px; }
+.sticker-fields input { width: 52px; padding: 2px 3px; }
+.sticker-actions { display: flex; gap: 4px; }
+.sticker-actions button, .file-button { min-height: 24px; padding: 2px 6px; font-size: 11px; }
+.file-button { display: inline-flex; align-items: center; border: 1px solid #9ca3af; border-radius: 4px; background: #fff; cursor: pointer; }
+.file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.sticker-empty { margin: 4px 0; color: #6b7280; }
+.sticker-create { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid #d1d5db; }
+.sticker-create > input { width: 100%; padding: 3px 5px; }
+.sticker-create > button { justify-self: start; }
+
 .current-card { padding: 4px 8px; border-bottom: 1px solid #d1d5db; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .dirty { color: #d97706; }
 

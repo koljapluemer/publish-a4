@@ -20,6 +20,13 @@ export interface Collage {
   cards: Placement[]
 }
 
+export interface Sticker {
+  name: string
+  file: string
+  width: number
+  height: number
+}
+
 export interface PreviewMessage {
   source: 'a4-preview'
   type: 'card-selected' | 'card-moved' | 'save-error' | 'image-pasted'

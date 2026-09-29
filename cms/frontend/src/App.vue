@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as api from './api'
-import type { Card, Collage, Metadata } from './types'
+import type { Card, Collage, Metadata, Sticker } from './types'
 import CanvasTools from './components/CanvasTools.vue'
 import CardEditor from './components/CardEditor.vue'
 import CollageDashboard from './components/CollageDashboard.vue'
 import CollageList from './components/CollageList.vue'
 import CollagePreview from './components/CollagePreview.vue'
 import MetadataEditor from './components/MetadataEditor.vue'
+import StickerPalette from './components/StickerPalette.vue'
 
 const collages = ref<Collage[]>([])
 const selectedCollage = ref('')
@@ -25,6 +26,10 @@ const renamingCollage = ref(false)
 const exporting = ref(false)
 const exportStatus = ref<string | null>(null)
 const exportRevision = ref(0)
+const stickers = ref<Sticker[]>([])
+const stickersOpen = ref(false)
+const stickerBusy = ref(false)
+const stickerRevision = ref(0)
 
 const dirty = computed(() => selectedCard.value !== null && source.value !== savedSource.value)
 
@@ -49,9 +54,81 @@ async function refreshCollages() {
 
 async function initialize() {
   try {
-    await refreshCollages()
+    const [, loadedStickers] = await Promise.all([refreshCollages(), api.listStickers()])
+    stickers.value = loadedStickers
   } catch (value) {
     report(value)
+  }
+}
+
+async function insertSticker(name: string) {
+  if (!selectedCollage.value || creating.value || !await mayDiscard()) return
+  creating.value = true
+  error.value = null
+  try {
+    const offset = 10 + (currentCards().length % 10) * 5
+    const card = await api.createStickerCard(selectedCollage.value, name, {
+      top: offset,
+      left: offset,
+    })
+    await refreshCollages()
+    selectedCard.value = card
+    source.value = card.source
+    savedSource.value = card.source
+    revision.value += 1
+    stickersOpen.value = false
+  } catch (reason) {
+    report(reason)
+  } finally {
+    creating.value = false
+  }
+}
+
+async function createSticker(value: { name: string; image: File; width: number; height: number }) {
+  if (stickerBusy.value) return
+  stickerBusy.value = true
+  error.value = null
+  try {
+    await api.createSticker(value)
+    stickers.value = await api.listStickers()
+    stickerRevision.value += 1
+  } catch (reason) {
+    report(reason)
+  } finally {
+    stickerBusy.value = false
+  }
+}
+
+async function updateSticker(
+  name: string,
+  value: { image?: File; width: number; height: number },
+) {
+  if (stickerBusy.value) return
+  stickerBusy.value = true
+  error.value = null
+  try {
+    await api.updateSticker(name, value)
+    stickers.value = await api.listStickers()
+    stickerRevision.value += 1
+  } catch (reason) {
+    report(reason)
+  } finally {
+    stickerBusy.value = false
+  }
+}
+
+async function deleteSticker(name: string) {
+  if (stickerBusy.value || !window.confirm(`Delete sticker ${name}? Existing collage copies will remain.`)) return
+  stickerBusy.value = true
+  error.value = null
+  try {
+    await api.deleteSticker(name)
+    stickers.value = await api.listStickers()
+    stickerRevision.value += 1
+  } catch (reason) {
+    report(reason)
+  } finally {
+    stickerBusy.value = false
   }
 }
 
@@ -342,7 +419,20 @@ onBeforeUnmount(() => {
         :creating="creating"
         @create="create"
         @create-image="createImage()"
+        @toggle-stickers="stickersOpen = !stickersOpen"
         @delete="remove"
+      />
+      <StickerPalette
+        v-if="selectedCollage && stickersOpen"
+        :key="stickerRevision"
+        :stickers="stickers"
+        :busy="stickerBusy || creating"
+        :revision="stickerRevision"
+        @insert="insertSticker"
+        @create="createSticker"
+        @update="updateSticker"
+        @delete="deleteSticker"
+        @close="stickersOpen = false"
       />
     </div>
     <div v-if="selectedCollage" class="sidebar">

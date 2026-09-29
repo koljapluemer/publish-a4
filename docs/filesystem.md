@@ -26,6 +26,10 @@ Each direct child containing an `index.jsonl` file is treated as a collage:
 
 ```text
 <data_dir>/
+  _stickers/              # optional shared sticker library
+    stickers.json
+    images/
+      <files>
   <collage>/
     index.jsonl
     cards/
@@ -35,8 +39,16 @@ Each direct child containing an `index.jsonl` file is treated as a collage:
 ```
 
 Collage and card names may contain only ASCII letters, numbers, underscores, and hyphens.
+The collage name `_stickers` is reserved for the shared sticker library.
 The collage name is its directory name. Renaming a collage moves the complete directory,
 including its cards and assets.
+
+### `_stickers/`
+
+The editor stores reusable images in `_stickers/images/` and their default physical dimensions
+in `_stickers/stickers.json`. Width and height are measured in millimetres. Inserting a sticker
+copies its current image into the collage and creates an ordinary fixed-size card. Existing
+instances are therefore unaffected when a library sticker is replaced, resized, or deleted.
 
 ### `index.jsonl`
 

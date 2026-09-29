@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ImagePlus, Plus, Trash2 } from 'lucide-vue-next'
+import { ImagePlus, Plus, Sticker, Trash2 } from 'lucide-vue-next'
 
 defineProps<{
   hasCollage: boolean
@@ -11,6 +11,7 @@ defineProps<{
 const emit = defineEmits<{
   create: []
   createImage: []
+  toggleStickers: []
   delete: []
 }>()
 </script>
@@ -27,6 +28,14 @@ const emit = defineEmits<{
       @click="emit('createImage')"
     >
       <ImagePlus :size="16" />
+    </button>
+    <button
+      title="Stickers"
+      aria-label="Stickers"
+      :disabled="!hasCollage"
+      @click="emit('toggleStickers')"
+    >
+      <Sticker :size="16" />
     </button>
     <button
       class="danger"

@@ -1,4 +1,4 @@
-import type { Card, Collage, Metadata, Placement } from './types'
+import type { Card, Collage, Metadata, Placement, Sticker } from './types'
 
 interface ApiErrorBody {
   error?: { message?: string }
@@ -102,4 +102,56 @@ export function deleteCard(collage: string, card: string): Promise<void> {
   return request<void>(cardUrl(collage, card), { method: 'DELETE' })
 }
 
-export type { Card, Collage, Metadata, Placement }
+export async function listStickers(): Promise<Sticker[]> {
+  const result = await request<{ stickers: Sticker[] }>('/api/stickers')
+  return result.stickers
+}
+
+function stickerBody(value: { image?: File; width: number; height: number; name?: string }): FormData {
+  const body = new FormData()
+  if (value.name !== undefined) body.append('name', value.name)
+  if (value.image) body.append('image', value.image)
+  body.append('width', String(value.width))
+  body.append('height', String(value.height))
+  return body
+}
+
+export function createSticker(value: {
+  name: string
+  image: File
+  width: number
+  height: number
+}): Promise<Sticker> {
+  return request<Sticker>('/api/stickers', { method: 'POST', body: stickerBody(value) })
+}
+
+export function updateSticker(
+  name: string,
+  value: { image?: File; width: number; height: number },
+): Promise<Sticker> {
+  return request<Sticker>(`/api/stickers/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: stickerBody(value),
+  })
+}
+
+export function deleteSticker(name: string): Promise<void> {
+  return request<void>(`/api/stickers/${encodeURIComponent(name)}`, { method: 'DELETE' })
+}
+
+export function createStickerCard(
+  collage: string,
+  sticker: string,
+  value: { top: number; left: number },
+): Promise<Card> {
+  return request<Card>(
+    `/api/collages/${encodeURIComponent(collage)}/stickers/${encodeURIComponent(sticker)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(value),
+    },
+  )
+}
+
+export type { Card, Collage, Metadata, Placement, Sticker }
